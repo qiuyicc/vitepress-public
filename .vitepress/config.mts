@@ -2,7 +2,10 @@ import { defineConfig } from "vitepress";
 import { set_sidebar } from "../utils/auto_generate_sidbar.mjs";
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  head: [["link", { rel: "icon", href: "/favicon.png" }]],
+  head: [
+    ["link", { rel: "icon", href: "/favicon.png" }],
+    ["script",{src:"/test.js"}]
+  ],
   title: "秋忆CC个人博客",
   description: "部署网站",
   markdown: {},
@@ -42,6 +45,7 @@ export default defineConfig({
       { text: "JS", items:[
         { text: "Vue3", link: "/pages/front_end/vue3" },
         { text: "Git", link: "/pages/front_end/git" },
+        { text: "Jest", link: "/pages/front_end/jest" },
       ]},
       { text: "Node", link: "/pages/back_end/node" },
     ],
@@ -119,7 +123,7 @@ export default defineConfig({
     ],
 
     footer: {
-      copyright: "MIT Licensed | Copyright © 2021-present CC",
+      copyright: " <a style='text-decoration:none;font-size:16px'  href='https://beian.miit.gov.cn/' target='_blank'>蜀ICP备2024099810号-1</a> ",
     },
   },
 });

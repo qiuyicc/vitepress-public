@@ -190,9 +190,37 @@ export default defineComponent({
 
 <style lang="scss" scoped></style>
 ```
+Vue  组件的三种形式
+```ts
+1. SFC 单文件组件,混合三种标签，返回vue的template
+2. 函数组件，Function Component，函数形式，使用JSX或者h函数
+3.render function，对象形式，使用对象上的render函数，使用jsx或者h函数
+return defineComponent({
+  redner(){
+    return <div>hello</div> //render返回
+  }
+})
+
+return deinfedComponent({
+  setup(props){
+    return () => <div>hello</div> //setup返回
+  }
+})
+```
+::: tip
+template语法：
+1. 有非常多的指令，可以快速完成任务；
+2. 基于DOM结构，更容易理解；
+3. vue针对template做了优化，性能更好；
+4. 不够灵活
+
+JSX或h函数：
+1. 灵活，可以利用JS来表达各种逻辑；
+2. 可读性差，需要编译优化
+:::
+
 
 ### 自定义事件
-
 ::: code-group
 
 ```ts [Test.vue]
@@ -225,6 +253,7 @@ setup() {
 ```
 
 :::
+
 
 ### 组合式函数
 

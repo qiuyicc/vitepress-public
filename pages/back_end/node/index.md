@@ -1911,3 +1911,13 @@ server.listen(3000, () => {
 ```
 
 :::
+
+### 图片预览的方法
+1.URL.createObjectURL()，静态方法，创建一个DOMString，返回一个本地内存容器的URL地址，URL和document绑定，表示制定的file对象，可以直接打开预览 ，直接返回，同步执行，清楚方式只有unload()或revokeObjectURL()手动清除
+2. FileReader.readAsDataURL()，异步方法，通过回调执行，将文件内容读取为base64编码，然后显示在img标签的src属性上，按照JS垃圾回收机制自动从内存中清理
+3. Jest模拟ceateObjectURL()
+```ts
+window.URL.createObjectURL = jest.fn(() =>{
+  return 'test.url'
+})
+```

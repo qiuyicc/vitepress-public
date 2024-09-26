@@ -18,7 +18,7 @@ hero:
     #   link: /api-examples
     - theme: brand
       text: 好站记录
-      link: /vitepress-examples
+      link: /pages/good_sites
 
 features:
   - title: 前端

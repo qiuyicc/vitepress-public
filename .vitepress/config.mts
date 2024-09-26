@@ -4,11 +4,12 @@ import { set_sidebar } from "../utils/auto_generate_sidbar.mjs";
 export default defineConfig({
   head: [
     ["link", { rel: "icon", href: "/favicon.png" }],
-    ["script",{src:"/test.js"}]
+    ["script", { src: "/test.js" }],
   ],
   title: "秋忆CC个人博客",
   description: "部署网站",
   markdown: {},
+  lastUpdated: true,
   themeConfig: {
     logo: "/logo.png",
     outlineTitle: "文章目录",
@@ -42,11 +43,15 @@ export default defineConfig({
         link: "/",
       },
       { text: "TS", link: "/pages/ts" },
-      { text: "JS", items:[
-        { text: "Vue3", link: "/pages/front_end/vue3" },
-        { text: "Git", link: "/pages/front_end/git" },
-        { text: "Jest", link: "/pages/front_end/jest" },
-      ]},
+      {
+        text: "JS",
+        items: [
+          { text: "Vue3", link: "/pages/front_end/vue3" },
+          { text: "Git", link: "/pages/front_end/git" },
+          { text: "Jest", link: "/pages/front_end/jest" },
+          { text: "Build Tools", link: "/pages/front_end/webpack" },
+        ],
+      },
       { text: "Node", link: "/pages/back_end/node" },
     ],
     // sidebar:false,
@@ -123,7 +128,8 @@ export default defineConfig({
     ],
 
     footer: {
-      copyright: " <a style='text-decoration:none;font-size:16px'  href='https://beian.miit.gov.cn/' target='_blank'>蜀ICP备2024099810号-1</a> ",
+      copyright:
+        " <a style='text-decoration:none;font-size:16px'  href='https://beian.miit.gov.cn/' target='_blank'>蜀ICP备2024099810号-1</a> ",
     },
   },
 });

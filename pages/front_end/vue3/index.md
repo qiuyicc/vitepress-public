@@ -48,6 +48,28 @@ npm i @vue/eslint-config-typescript --save-dev//typescript规则
 
 ## Vue
 
+### Vue3中的实例
+1. 全局应用实例
+2. 组件实例
+3. 组件内部实例
+```ts
+import { createApp } from 'vue'
+import App from './App.vue'
+const app = createApp(App) //返回应用实例
+const vm = app.mount('#app') 
+返回组件实例，组件的所有属性props、setup.....都会在实例上面平铺展示，还有一系列的内置或者全局属性，
+比如$attrs、 $refs等等， $message、$confirm等  
+测试中的wrapper.vm属于组件实例
+通过ref拿到的实例也属于组件实例
+```
+```ts
+//组件内部实例
+import { getInstance } from 'vue'
+const vm = getInstance() //返回组件内部实例，一个混合实例
+通过proxy属性可以拿到组件实例上面的属性
+通过appContext可以拿到应用实例上面的部分属性
+```
+
 ### ref 和 reacitve
 
 ```ts
@@ -254,6 +276,33 @@ setup() {
 
 :::
 
+### 组件通信
+1. 父组件访问子组件实例，$refs && ref对象
+2. 子组件访问父组件实例， $parent
+3. Provide/inject完成子组件到父组件的多级访问，响应式对象也可以传递
+4. 使用事件监听器完成子组件的通信,如mitt
+::: tip ref运行机制
+渲染时Vnode ref属性 === render对象中的响应式对象
+对应的DOM节点或组件实例就会被赋值给这个响应式对象
+在Vnode的patch或者mount阶段时发生，所有初次渲染完毕才能拿到
+:::
+```ts
+onMounted(() => {
+  const instance = getCurrentInstance();
+  console.log(instance.proxy.$parent); //访问父组件实例
+  $parent可以一直向上访问，直到根组件，最后为null，但是不建议这么做，需要保持单向数据流
+})
+```
+```ts
+import mitt from "mitt";
+export const emitter = mitt();
+...........
+//parent.vue
+emitter.on("message", (value) => {}) //监听子组件的消息
+//son.vue or other component
+emitter.emit("message", "hello") //发送消息给父组件
+```
+```
 
 ### 组合式函数
 
@@ -545,4 +594,110 @@ export default {
         return { route };
     }
 }
+```
+
+## 插件系统
+一段代码，给Vue应用实例添加全局功能，它的格式是一个object暴露出一个install方法或者为一个function  
+1. 添加全局方法或属性；
+2. 添加全局资源：指令、过滤等；
+3. 通过全局混入来添加一些组件选型；
+4. 通过config.globalProperties来添加实例方法
+
+::: code-group
+```ts [testPlugin.ts]
+import { App } from 'vue'
+import HelloWorld from './HelloWorld.vue'
+const testPlugin = {
+    install(app: App) {
+        app.config.globalProperties.$test = 'Hello World'
+        app.component('HelloWorld', HelloWorld)
+        app.provide('test', 'Hello World')
+    }
+}
+export default testPlugin
+```
+:::
+
+## 组件库
+
+### 组件库的入口文件
+::: tip
+所有组件一次性全部导入并作为插件使用；
+:::
+1. 建立一个入口文件index.ts
+2. 将所有默认组件导入，作为一个数组，创建一个install方法，循环调用app.component方法注册组件；
+3. 导出默认插件(install方法)
+
+::: tip
+单个组件导入并作为插件使用
+:::
+1. 每个组件新建一个文件夹，并且创建一个单独的index.ts文件作为入口文件；
+2. 每个组件设计为一个插件(一个object拥有install方法)
+3. 在全局入口文件导出
+::: code-group
+```ts [index.ts]
+//  组件入口文件
+import { App } from "vue";
+import LText from "./LText.vue";
+
+LText.install = (app: App) => {
+  app.component(LText.name as string, LText);
+};
+
+export default LText;
+
+```
+```ts [index.ts]
+//  全局入口文件
+import { App } from 'vue';
+
+import  LText from './components/LText';
+
+const components = [
+    LText
+]
+
+const install = (app: App) => {
+    components.forEach(component => {
+        app.component(component.name as string, component)
+    })
+}
+//单个导出注册
+export {
+    LText,
+    install
+}
+//全部导出注册
+export default {
+    install
+}
+```
+:::
+
+### 组件库的打包和配置
+1. 组件库使用Rollup打包，配置打包入口文件和输出文件，详情转移至Rollup笔记；
+2. 打包后的文件可在dist目录下查看;
+3. 打包完成后在组件库的package.json添加配置
+```json
+  "main":"dist/test.umd.js",
+  "module": "dist/test.esm.js", 
+  "types":"dist/index.d.ts", 
+```
+4. 在组件库下执行命令npm link，链接到全局npm中
+5. 在需要使用的组件库的项目下执行npm link PackageName,创建一个指向你本地组件库的符号链接，使得在该项目中能够使用你正在开发的组件库。
+6. 在你需要的组件中引入使用
+```ts [main.ts]
+import { createApp } from 'vue'
+import './style.css'
+import App from './App.vue'
+import MyComponent from 'test' // [!code ++]
+const app = createApp(
+app.use(MyComponentApp))
+app.mount('#app')
+```
+```ts
+npm unlink <package-name> //解除链接
+```
+```ts
+npm ls -g --depth=0 //查看全局安装的包及其链接状态
 ```

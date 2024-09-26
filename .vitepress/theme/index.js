@@ -11,13 +11,4 @@ export default {
       // https://vitepress.dev/guide/extending-default-theme#layout-slots
     })
   },
-  enhanceApp({ app, router, siteData }) {
-    // ..
-    // app.component('CollapsibleAside', CollapsibleAside)
-    // if(aside){
-    //   aside.addEventListener('click', () => {
-    //     console.log('Sidebar clicked!');
-    //   })
-    // }
-  }
 }

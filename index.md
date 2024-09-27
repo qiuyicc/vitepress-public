@@ -4,7 +4,7 @@ layout: home
 
 hero:
   name: "秋忆CC的知识库"
-  text: "基于VitePress"
+  text: "千里之行，始于足下。"
   tagline: "好记性不如烂笔头"
   image: 
     src: /bg.jpg

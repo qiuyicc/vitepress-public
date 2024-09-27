@@ -42,9 +42,15 @@ export default defineConfig({
         text: "Home",
         link: "/",
       },
+      {
+        text: "面试",
+        items:[
+          {text:"HTML",link:"/pages/interview/html"},
+        ],
+      },
       { text: "TS", link: "/pages/ts" },
       {
-        text: "JS",
+        text: "前端",
         items: [
           { text: "Vue3", link: "/pages/front_end/vue3" },
           { text: "Git", link: "/pages/front_end/git" },
@@ -52,7 +58,11 @@ export default defineConfig({
           { text: "Build Tools", link: "/pages/front_end/webpack" },
         ],
       },
-      { text: "Node", link: "/pages/back_end/node" },
+      { text: "后端", items:[
+        {text:"Node",link: "/pages/back_end/node" },
+        {text:"SQL",link: "/pages/sql" },
+        {text:"框架",link: "/pages/back_end/frame_backend" }
+      ]},
     ],
     // sidebar:false,
     // sidebar: {

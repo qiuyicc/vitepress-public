@@ -466,7 +466,7 @@ export default (app: Application) => {
 
 ```
 
-### config文件夹
+### Config文件夹
 
 1. config.default.ts 应用的默认配置，一般来说，开发者不需要修改这个文件，除非需要修改框架的默认配置；
 2. config.local.ts 本地环境的配置，一般来说，开发者在本地开发环境下使用，修改这个文件，使用了深拷贝合并，npm run dev以local文件为准；
@@ -475,7 +475,7 @@ export default (app: Application) => {
 5. config向外暴露出一个函数，参数为appInfo:EggAppInfo,是应用有关信息，pkg是package.json，name是应用名，baseDir是应用根目录，home是用户目录，root是应用根目录，只有在local和unittest环境下才为baseDir，其他都为HOME
 6. config文件分为两大部分，一部分是应用本身的配置，另一部分是业务逻辑的配置
 
-### config文件TS支持
+### Config文件TS支持
 
 1. 在contoller和service当中能够获取正确的类型，支持多级提示；
 2. 在其他配置文件中能够获得default的正确类型；
@@ -754,7 +754,7 @@ declare module 'egg' {
 :::
 经过这样的不断扩充，最终形成了丰富的类型提示，让开发者在编写代码时，能够获得更好的提示，提高开发效率。
 
-### egg调试技巧
+### Egg调试技巧
 
 1. 使用console.log打印日志，可以看到打印的日志会被打印到控制台，并且可以看到打印的日志会被egg框架记录，可以在日志文件中查看到；
 2. 使用egg-logger插件，可以记录日志到文件，并且可以看到打印的日志会被egg框架记录，可以在日志文件中查看到；
@@ -791,7 +791,259 @@ ${appInfo.root}/logs/${appInfo.name}
 4. agentLogger egg-agent.log：agent 进程日志，框架和使用到 agent 进程执行任务的插件会打印一些日志到这里。
 :::
 
+### Egg连接MongDB
 
+1. 安装mongoose包
+```ts
+npm install mongoose --save
+```
+2. MongDB配置
+```ts
+//config/config.default.ts
+  const bizConfig = {
+    mongoose:{
+      url:'mongodb://localhost:27017/test'
+    }
+  };
+
+```
+3. 连接MongDB
+```ts
+//app.ts
+import { IBoot, Application } from 'egg';
+import { createConnection } from 'mongoose'
+import assert from 'assert'
+
+export default class AppBoot implements IBoot {
+  private readonly app: Application;
+  constructor(app: Application) {
+    this.app = app;
+    const { url } = this.app.config.mongoose;
+    assert(url, 'config.mongoose.url is required');
+    const db = createConnection(url);
+    db.on('connected',()=>{
+        app.logger.info('Mongoose connection open to ' + url);
+    })
+    //@ts-ignore
+    app.mongoose = db; //这部分报错未解决,不影响后续使用 // [!code ++]  
+  }
+}
+
+```
+4. 声明mongoose的类型
+```ts
+import 'egg';
+import { Connection } from 'mongoose';
+
+type NewConnection = Connection
+declare module 'egg' {
+  interface Application {
+    mongoose: NewConnection;
+  }
+}
+```
+
+### Egg配合mongodb初步使用
+
+::: code-group
+```ts{15-16} [service/dog.ts]
+private getUsers() {
+  const app = this.app;
+  //映射到先前未创立Schema的User模型
+  const UserSchema = new Schema({
+    name: {
+      type: String,
+    },
+    age: {
+      type: Number,
+    },
+    hobby: {
+      type: Array,
+    },
+  },{collection: 'user'});
+  //注意使用createConnection创建的db，需要使用db.model来映射模型
+  //使用connect创建的，需要从mongoose引入model模块创建模型
+  return app.mongoose.model('User',UserSchema)
+}
+async showUser(){
+  const UserModel = this.getUsers();
+  const result = await UserModel.find({age: {$gt: 25}}).exec();
+  return result;
+}
+```
+```ts [controller/test.ts]
+async getUsers(){
+  const users = await this.service.dog.showUser();
+  const res = {
+    users,
+    mongooseId:this.app.mongoose.id
+  }
+  this.ctx.helper.success({ ctx: this.ctx, res })
+}
+```
+```ts [rouer.ts]
+router.get('/user', controller.test.getUsers);
+```
+:::
+
+### Egg的Loader
+
+1.  在app.ts中使用LoaderToApp载入model模块
+
+```ts
+//app.ts
+async willReady(): Promise<void> {
+  //异步
+  //应用准备就绪
+  const dir = join(this.app.config.baseDir, 'app/model');
+  this.app.loader.loadToApp(dir,'model', {
+  caseStyle: 'upper',
+  })
+}
+```
+2. 在app文件夹下新建model文件夹，在model文件夹下新建user.ts文件
+```ts
+//app/model/user.ts
+import { Application } from "egg";
+import { Schema } from "mongoose";
+function initUserModel(app:Application) {
+    //映射到先前未创立Schema的User模型
+    const UserSchema = new Schema({
+      name: {
+        type: String,
+      },
+      age: {
+        type: Number,
+      },
+      hobby: {
+        type: Array,
+      },
+    },{collection: 'user'});
+    return app.mongoose.model('User',UserSchema)
+}
+export default initUserModel;
+```
+3. 在typings/index.d.ts中声明model属性
+```ts
+//typings/index.d.ts
+import 'egg';
+import { Connection,Model } from 'mongoose';
+
+type NewConnection = Connection
+type MongooseModel = {
+  [key: string]: Model<any>
+}
+declare module 'egg' {
+  interface Application {
+    mongoose: NewConnection;
+    model: MongooseModel;
+  }
+}
+
+```
+4. 更改dog.ts文件
+```ts
+//app/service/dog.ts
+async showUser(){
+  //此时app上面就有model属性，上面有User模块可以使用
+  const result = await this.app.model.User.find({age: {$gt: 25}}).exec();// [!code ++]
+  return result;
+}
+```
+
+### 将逻辑抽象为Egg插件
+
+目标：将上一步的逻辑抽象为egg插件，可以直接在项目中使用，不需要在app.ts中编写代码。
+1. 新建egg插件文件
+```ts
+npm init egg --type=plugin
+//选择plugin模板
+```
+1. 在根目录下新建app.js，改写程序
+```ts
+//注意是JS
+const path = require('path');
+const assert = require('assert');
+const mongoose = require('mongoose');
+
+class AppBoot {
+  constructor(app) {
+    this.app = app;
+    const { url } = this.app.config.mongoose;
+    assert(url, 'config.mongoose.url is required');
+    const db = mongoose.createConnection(url);
+    db.on('connected', () => {
+      app.logger.info('Mongoose connection open to ' + url);
+    });
+    app.mongoose = db;
+  }
+  async willReady() {
+    const dir = path.join(this.app.config.baseDir, 'app/model');
+    this.app.loader.loadToApp(dir, 'model', {
+      caseStyle: 'upper',
+    });
+  }
+}
+module.exports = AppBoot;
+```
+3. 在根目录下新建index.d.ts,作为声明文件
+```ts
+import 'egg';
+import { Connection, Model } from 'mongoose';
+
+declare module 'egg' {
+  type MongooseModel = {
+    [key: string]: Model<any>;
+  };
+  interface Application {
+    mongoose: Connection;
+    models: MongooseModel;
+  }
+  interface EggAppConfig {
+    mongoose: {
+      url?: string;
+    };
+  }
+}
+```
+4. 查看package.json文件，注意package的name不要重名，eggPlugin字段中的name字段为插件名，files是要提交的文件
+```ts
+"name": "egg-test-qiuyi-plugin",
+"eggPlugin": {
+    "name": "testPlugin"
+  },
+"files": [
+  "app.js",
+  "agent.js",
+  "config",
+  "app",
+  "index.d.ts"
+],
+```
+5. 发布插件，未登录先进行npm adduser登录
+```ts
+npm publish
+```
+6. 在项目中使用插件
+```ts
+npm install egg-test-qiuyi-plugin --save-dev
+```
+```ts
+//config/plugin.ts
+testPlugin:{
+  enable: true,
+  package: 'egg-test-qiuyi-plugin',
+}
+```
+7. 注释先前的代码逻辑，使用插件
+```ts
+//config/config.default.ts
+config.mongoose = {
+  url:'mongodb://localhost:27017/test',
+}
+//config上有mongoose字段
+//app上有mongoose和model字段，成功使用插件，运行项目无措
+```
 
 ## Egg错误记录
 
@@ -840,5 +1092,35 @@ module.exports = {
 npm i egg-ts-helper --save-dev
 github地址：https://github.com/eggjs/egg-ts-helper/blob/master/README.zh-CN.md
 ```
+
+### Egg连接MongDB时无法提示
+
+在egg连接mongdb时，向app上挂载数据库db对象，虽然在typings下的index.d.ts中重载了Application的类型，但是在app.ts中还是无法提示，其他controller、service等模块可以正常提示,后续使用正常，未解决此错误，使用@ts-ignore注释，留作记录：
+:::code-group
+```ts [typing/index.d.ts]
+import 'egg';
+import { Connection } from 'mongoose';
+
+type NewConnection = Connection
+declare module 'egg' {
+  interface Application {
+    mongoose: NewConnection;
+  }
+}
+```
+```ts [app.ts]
+constructor(app: Application) {
+  this.app = app;
+  const { url } = this.app.config.mongoose;
+  assert(url, 'config.mongoose.url is required');
+  const db = createConnection(url);
+  db.on('connected',()=>{
+      app.logger.info('Mongoose connection open to ' + url);
+  })
+  //@ts-ignore
+  app.mongoose = db; // [!code ++]
+}
+```
+::: 
 
 

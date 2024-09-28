@@ -804,3 +804,171 @@ const result = await userCollection
     //支持链式调用
     const result2  =  await userCollection.find({age:{$gt:25}}).sort({age:-1}).toArray()
 ```
+
+### update和replace
+
+```ts
+const replaceDoc = await userCollection.replaceOne({name:"John"},{name:"John2",age:30})
+//$set,重新设置
+//$inc 自增
+//$push 数组添加元素
+//$pull 数组删除元素
+//$unset 删除字段
+//$rename 字段重命名 
+const updateOptions: UpdateFilter<Document> = {
+    $set: { name: "John3" },
+    $inc: { age: 1 },
+}
+const updateResult = await userCollection.updateOne({ name: "John2" }, updateOptions)
+console.log(updateResult);
+```
+```ts
+const updateOptions: UpdateFilter<{ name: string; age: number; hobby: string[] }> = {
+    // $push:{ hobby: '学习' }
+    // $push:{
+    //   $each: ['学习', '睡觉'],
+    // }
+    // $push:{
+    //   $each: ['学习', '睡觉'],
+    //   $position: 1, // 插入到数组的第2个位置
+    // },
+    // $pull:{
+    //   hobby: '喝水'
+    // }
+    // $set:{
+    //   "hobby.0": "学习"
+    // }
+}
+const updateResult = await userCollection.updateOne({ _id: new ObjectId('66f7830c783a0d63fc9f61e6') }, {$push:{ hobby: '学习' }})
+```
+
+### 数组操作
+
+```ts
+const search = await userCollection.findOne({ hobby: ['吃饭',"喝水"] }) //完全匹配
+const search2 = await userCollection.findOne({ hobby: { $all: ['吃饭'] } }) //部分匹配
+const search3 = await userCollection.findOne({ hobby: '吃饭' }) //包含匹配
+const search4 = await userCollection.findOne({ hobby: /喝.*/ }) //正则匹配
+//使用占位符进行更新
+const UpdateFilter: UpdateFilter<User> = {
+    $set: {
+    "hobby.$": "喝水-new" // [!code ++]
+    }
+}
+const update = await userCollection.updateOne({ _id: new ObjectId('66f7830c783a0d63fc9f61e6'), hobby: "喝水" }, UpdateFilter)
+
+```
+
+### mongodb索引
+
+索引为了提高效率，MongDB的文件类型是：BJON，索引是一个特殊的数据结构，存储在一个易于遍历读取的数据集合中  
+索引会增加写操作的代价lay，但会提高查询效率，索引的建立和维护需要耗费时间，所以在创建索引时，需要慎重考虑。  
+
+```ts
+const result = await userCollection.find({name:"test50000"}).explain() //explain分析查询信息 ，20ms左右
+const result = await userCollection.find({_id:ObjectId("66f7830c783a0d63fc9f61e6")}) //查询索引，0ms
+
+const result = await userCollection.createIndex({name:1}) //创建name索引,1表示升序
+const IndexResult = await userCollection.listIndexes().toArray() //获取索引信息
+const result = await userCollection.dropIndex("name_1") //删除索引
+const result = await userCollection.totalIndexSize() //获取索引大小
+```
+
+### 内嵌和引用
+
+1. 引用，在一个文档中存储另一个文档的ID，通过ID来查询文档，两次查询，一次查询文档，一次查询ID，数据查询量会变小，但是需要两个查询，性能会变慢。
+
+2. 内嵌，只需要一次查询就能获取所有的信息，避免多级和查询，但是单个文档太大，查询更耗时；针对单个文档，mongoDB有一个16M的限制。
+
+
+### 聚合
+
+将来自多个文档的值组合在一起，并且可以对分组数据执行各种操作以返回结果
+1. $group: 聚合文档，将文档分组，并对分组数据执行操作
+2. $match,过滤文档；
+3. $project,修改文档；
+4. $sort,排序；
+5. $limit,限制返回结果数量；
+6. $skip,跳过指定数量的文档；
+
+```ts
+const peipeLine = [
+    {$match:{ age: { $gt: 25 } }}, //匹配
+    {$group:{_id:"$team",total:{$sum:"$age"},$count:{$sum:1},$avg:{$avg:"$age"}} }//team分组，计算age总和，count总数
+    {$sort:{ total:1 }}
+]
+const result = await userCollection.aggregate(peipeLine).toArray()
+```
+8. $lookup,联合查询，查询另一个集合的文档，将两个集合的文档合并成一个文档
+
+```ts
+const pipeLine = [
+    {$match:{ age: { $gt: 25 } }},
+    {
+        $lookip:{
+            from:"collection name",
+            localField:"collcrction field name", //当前集合的字段
+            foreignField:"foreign field name",//另一个集合的字段
+            as:"new field name"
+        }
+    }
+]
+```
+
+### mongoose
+
+1. 建立在native mongoDB nodejs driver之上，提供了更高级的API，更方便的操作mongodb
+2. 提出Model层，将mongodb的操作封装成Model层，用来约束集合中的数据结构
+3. 扩展丰富
+4. 是一个ODM（Object Document Mapping）框架，可以将mongodb的文档映射到js对象，方便操作
+
+ORM：
+1. Object-Relational Mapping，对象-关系映射，将关系数据库中的数据模型映射到面向对象编程语言中的对象模型。
+2. 不需要写SQL语句，直接操作对象即可。
+3. 使用面向对象的方式操作数据，代码量少，容易理解
+4. Classes类 -> Tables，Objects实例 -> Records(表中的一行数据),Attributes字段 -> Columns(Records中的一列数据)
+5. 内置很多功能
+
+ODM：
+1. 针对noSQL数据库，将mongodb中的数据模型映射到js对象，提供更高级的API，更方便的操作mongodb
+   
+### mongoose基本语法
+
+```ts
+import { connect, Schema, model, disconnect } from 'mongoose';
+
+async function startServer() {
+  try {
+    await connect('mongodb://localhost:27017/test');
+    console.log('Connected to MongoDB');
+    //创建Product模型
+    const ProductSchema = new Schema({
+      name: {
+        type: String,
+      },
+      price: {
+        type: Number,
+      },
+    });
+    const ProductModel = model('Product', ProductSchema);
+    //使用create方法创建数据
+    // const result = await ProductModel.create({
+    //   name: 'Product1',
+    //   price: 100,
+    // });
+    //使用save方法创建数据
+    const result = new ProductModel({
+        name:"Product2",
+        price:200
+    })
+    await result.save();
+  } catch (error) {
+    console.log(error);
+  } finally {
+    await disconnect();
+  }
+}
+startServer();
+```
+
+###

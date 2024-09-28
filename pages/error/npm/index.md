@@ -23,3 +23,12 @@ HttpClientConnectTimeoutError: Connect Timeout Error
 //解决方法：
 npm config set proxy=null 
 ```
+
+
+## npm publish 403 Forbidden
+
+::: danger
+403 Forbidden
+原因：重名了
+:::
+解决方法：更换package.json中的name

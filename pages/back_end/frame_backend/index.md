@@ -1045,6 +1045,427 @@ config.mongoose = {
 //app上有mongoose和model字段，成功使用插件，运行项目无措
 ```
 
+### 创建用户流程
+
+1. 编写User模型
+```ts
+//app/model/user.ts
+import { Application } from "egg";
+import { Schema } from "mongoose";
+
+export interface UserProps {
+  username: string;
+  password: string;
+  email?: string;
+  nickName?: string;
+  picture?: string;
+  phoneNumber?: string;
+  createAt: Date,
+  updateAt: Date,
+}
+
+function initUserModel(app: Application) {
+  const schema = new Schema<UserProps>({
+    username: { type: String, required: true,unique: true },
+    password: { type: String, required: true },
+    email: { type: String },
+    nickName: { type: String },
+    picture: { type: String },
+    phoneNumber: { type: String },
+  },{timestamps: true});//timestamps: true 自动添加createdAt和updatedAt字段
+  return app.mongoose.model<UserProps>("User", schema);
+}
+
+export default initUserModel;
+```
+2. 编写UserService
+```ts
+//app/service/user.ts
+import { Service } from 'egg';
+import { UserProps } from '../model/user';
+
+export default class UserService extends Service {
+  public async createUserServiceByEmail(payload: UserProps) {
+    const { ctx } = this;
+    const { username, password } = payload;
+    const userCreateData: Partial<UserProps> = {
+      username,
+      password,
+      email: username,
+    };
+    const user = await ctx.model.User.create(userCreateData);
+    return user;
+  }
+
+  async findByUserId(id: string) {
+    return await this.ctx.model.User.findById(id);
+  }
+}
+```
+3. 编写UserController
+```ts
+//app/controller/user.ts
+import { Controller } from 'egg';
+
+export default class UserController extends Controller {
+    async createUserControllerByEmail(){
+        const { ctx, service } = this;
+        const userData = await service.user.createUserServiceByEmail(ctx.request.body)
+        ctx.helper.success({ctx, res: userData})
+    }
+
+    async showUser(){
+        const { ctx, service } = this;
+        const user = await service.user.findByUserId(ctx.params.id)
+        ctx.helper.success({ctx, res: user})
+    }
+}
+```
+4. 编写路由
+```ts
+import { Application } from 'egg';
+
+export default (app: Application) => {
+  const { controller, router } = app;
+  router.post('/api/users/create', controller.user.createUserControllerByEmail);
+  router.get('/api/users/:id', controller.user.showUser)
+};
+```
+
+### 改进Mdoel类型
+
+1. 可以在Service中定义直接 断言User的类型为UserProps，缺点是每次手写
+```ts
+//app/service/user.ts
+async findByUserId(id: string) {
+  const userModel = this.ctx.model.User as Model<UserProps> 
+  const result  = await userModel.findById(id);
+  if(result){
+      return result.xxxx //获得类型提示
+  }
+}
+```
+2. 在typing下的index.d.ts给egg-mongoose插件的MongooseModels类型进行扩展，缺点是需要在index.d.ts中手动声明
+```ts
+///typings/index.d.ts
+import 'egg';
+import { Connection, Model } from 'mongoose';
+import { UserProps } from '../app/model/user';
+
+declare module 'egg' {
+  interface MongooseModels {
+    User: Model<UserProps>;
+  }
+}
+```
+```ts
+//这样在service中就可以直接使用UserProps类型
+async findByUserId(id: string) {
+  const result  = await this.ctx.model.User.findById(id);
+  if(result){
+    return result.xxxx //获得类型提示
+  }
+```
+3. 注意到egg的内置插件egg-ts-helper可以自动生成模块类型文件，在typing/app/model/index.d.ts中可以看到User的类型定义,发现被IModel接口继承，于是可以在app/index.d.ts中继承IModel接口
+```ts
+//app/model/index.ts
+import 'egg';
+import ExportUser from '../../../app/model/user';
+
+declare module 'egg' {
+  interface IModel {
+    User: ReturnType<typeof ExportUser>; //通过typeof拿到函数的类型，通过ReturnType拿到函数的返回值类型
+  }
+}
+```
+```ts
+//app/index.d.ts
+import 'egg';
+import { Connection, Model } from 'mongoose';
+
+declare module 'egg' {
+  interface MongooseModels extends IModel {
+    [key: string]: Model<any>;//允许扩展其他的属性而不会报错
+  }
+}
+```
+
+### 添加数据验证egg-validate
+
+1. 安装egg-validate并使用
+2. 创建rules使用
+```ts
+const userCreateRules  = {
+    username:"email",
+    password:{
+        type:'password',
+        min:6
+    }
+}
+ //ctx.validate(userCreateRules) //直接抛出错误
+const errors = app.validator.validate(userCreateRules, ctx.request.body)
+if(errors){
+    return ctx.helper.error({ctx,errno:1001,msg:'创建用户失败'})
+}
+```
+
+### 规范化错误代码
+
+```ts
+//app/controller/user.ts
+//暂时不抽离类型定义
+export const userErrorMessages = {
+    createUserValidateFail:{
+        errno:'101001',
+        message:'创建用户失败',
+    },
+    createUserAlreadyExist:{
+        errno:'101002',
+        message:'用户已存在',
+    }
+}
+```
+```ts
+//app/extend/helper.ts
+interface ErrType {
+  ctx: Context;
+  errType: keyof typeof userErrorMessages; // [!code ++]
+  error?: any;
+}
+export default {
+  success({ ctx, res, msg }: ResType) {
+    ctx.body = {
+      errno: 0,
+      data: res ? res : null,
+      msg: msg ? msg : '请求成功',
+    };
+    ctx.status = 200;
+  },
+  error({ ctx, errType, error }: ErrType) {    
+    const { errno, message } = userErrorMessages[errType];
+    ctx.body = {
+      errno,
+      message,
+      ...(error && { error }), // [!code ++]
+    };
+    ctx.status = 200;
+  },
+};
+```
+```ts
+//app/controller/user.ts
+ async createUserControllerByEmail(){
+    const { ctx, service,app } = this;
+    //ctx.validate(userCreateRules)
+    const errors = app.validator.validate(userCreateRules, ctx.request.body)
+    if(errors){
+        return ctx.helper.error({ctx,errType:'createUserValidateFail',error:errors})
+    }
+    //检查用户名是否已存在
+    const result = await service.user.findByUserName(ctx.request.body.username)
+    if(result){
+        return ctx.helper.error({ctx,errType:'createUserAlreadyExist'})
+    }
+    const userData = await service.user.createUserServiceByEmail(ctx.request.body)
+    ctx.helper.success({ctx, res: userData})
+}
+```
+
+### 密码加密egg-bcrypt
+
+1. plaintext,明文，不用
+2. md5,不可逆单向加密，缺点是碰撞，彩虹表，暴力破解，仍有泄露风险
+3. md5 + salt,不可逆单向加密，salt是随机数，在hash前向明文固定位置插入salt，增加复杂度，增加安全性
+4. bcrypt，一种加盐的单向Hash，不可逆加密算法，同一明文每次加密后的密文都不一样，安全性高
+1. 安装egg-bcrypt并使用
+```ts
+npm i egg-bcrypt --save
+```
+2. 在config/config.default.ts中配置bcrypt
+```ts
+import 'egg';
+declare module 'egg' {
+  interface MongooseModels extends IModel {
+    [key: string]: Model<any>;
+  }
+
+  interface Context  {
+    genHash(plainText: string):Promise<string>,
+    compare(plainText: string, hash: string):Promise<boolean>,
+  }
+  interface EggAppConfig {
+    bcrypt:{
+        saltRounds: number
+    }
+  }
+}
+```
+2. 在service和controller中使用genHash和compare方法
+```ts
+const hashPassword = await ctx.genHash(password); //生成hash密码
+```
+3. 编写login接口测试加密密码
+```ts
+async login() {
+  const { ctx, service } = this;
+  const errorRes = this.validateUserInput();
+  //检查用户输入
+  if (errorRes) {
+    return ctx.helper.error({
+      ctx,
+      errType: 'userValidateFail',
+      error: errorRes,
+    });
+  }
+  const { username, password } = ctx.request.body;
+  //检查用户是否存在
+  const user  = await service.user.findByUserName(username);
+  if(!user){
+      return ctx.helper.error({ ctx, errType: 'loginCheckFail' });
+  }
+  // 验证密码
+  const verifyResult = await ctx.compare(password,user!.password) // [!code ++]
+  if(!verifyResult){
+      return ctx.helper.error({ ctx, errType: 'loginCheckFail' });
+  }else {
+      return ctx.helper.success({ ctx, res: user, msg: '登录成功' });
+  }
+}
+```
+
+### 删除返回的password字段信息
+
+1. 直接删除user中的password字段，行不通
+```ts
+delete user.password //user是一个Document & UserProps类型，不能直接对user进行delete
+```
+2. 使用toJSON,无法复用
+
+```ts
+const newUser = user.toJSON()
+//@ts-ignore
+delete newUser.password
+```
+
+3. 在定义model时传递options参数，使得UserModel每次调用toJSON时，会自动执行删除操作
+```ts
+function initUserModel(app: Application) {
+  const schema = new Schema<UserProps>({
+    username: { type: String, required: true,unique: true },
+    password: { type: String, required: true },
+    email: { type: String },
+    nickName: { type: String },
+    picture: { type: String },
+    phoneNumber: { type: String },
+  },{timestamps: true,toJSON:{
+    //每次调用toJSON方法，执行以下操作
+    transform: (doc, ret) => {
+      delete ret.password;
+      delete ret.__v
+    }
+  }});//timestamps: true 自动添加createdAt和updatedAt字段
+  return app.mongoose.model<UserProps>("User", schema);
+}
+```
+
+### mongoose-sequence实现ID自增
+
+mongDB原来的_id字段通过ObjectId实现，生成的id很长，不方便使用，mongoose-sequence插件可以实现ID自增，生成的id是自增的整数，方便使用。
+1. 安装mongoose-sequence，注意该插件是commonjs模块
+```ts
+npm i mongoose-sequence --save
+```
+2. 在model中引入工厂函数并使用
+```ts
+const AutoIncrementFactory = require('mongoose-sequence');
+const AutoIncrement = AutoIncrementFactory(app.mongoose);
+```
+3. 使用schema实例的plugin方法，将AutoIncrement插件添加到schema中
+```ts
+ userSchema.plugin(AutoIncrement, { inc_field: 'id',id: 'user_id_counter' });//id用于跟踪 id 字段的下一个可用值
+```
+
+### cookie与session
+
+egg内置了cookie和session插件，可以直接使用，不需要额外安装。
+
+```ts
+ctx.cookies.set('username',user.username,{encrypt:true}) //设置cookie并启动加密
+ctx.cookies.get('username',{encrypt:true})//获取cookie并解密
+ctx.session.username = user.username; //设置session
+const { username } = ctx.session;//获取session
+```
+session流程：
+1. 用户登录提交username，password
+2. 后端查询数据库正确，创建session或者cookie
+3. 返回set-cookie
+4. 浏览器设置cookie，下次请求带上cookie
+5. 查询是否有对应的session，有则返回数据，无则重新登录
+
+### session使用外部存储方式
+
+egg的session支持外部存储方式：
+1. 使用外部存储可以扩展session的存储空间，
+2. 但是当服务器重启时，session会丢失，依赖性高，
+3. 且当session过多时，也会占用大量内存。
+4. 多进程或多服务器时，同步是一个问题
+5. 采用第三方服务，如redis等，也需要成本
+默认时采用cookie-session,
+1. 客户端序列化，服务器不需要保持任何数据，
+2. 适合小型应用，低成本解决持久化和横向扩展的问题。
+3. 浏览器对于Cookie大小有限制，不能存入太多的信息
+4. Cookie每次请求都要携带，Session过大时，每次请求需要额外开支
+5. 静态资源采用CDN，除了多服务器提高响应速度以外，另外一个优点也是可以避免带着Cookie
+
+```ts
+//typing/index.d.ts
+import 'egg';
+declare module 'egg' {
+  interface MongooseModels extends IModel {
+    [key: string]: Model<any>;
+  }
+
+  interface Context  {
+    genHash(plainText: string):Promise<string>,
+    compare(plainText: string, hash: string):Promise<boolean>,
+  }
+  interface EggAppConfig {
+    bcrypt:{
+        saltRounds: number
+    }
+  }
+  //添加sessionStore，sessionMap属性
+  interface Application {
+    sessionMap:{
+      [key: string]: any
+    },
+    sessionStore:any
+  }
+}
+```
+```ts
+//app.ts
+constructor(app: Application) {
+    this.app = app;
+    (app as any).sessionMap = {};
+    (app as any).sessionStore = {
+      async get(key: string) {
+        app.logger.info(`get session ${key}`);
+        return (app as any).sessionMap[key];
+      },
+      async set(key: string, value: any) {
+        app.logger.info(`set session ${(key)}--${value}`);
+        (app as any).sessionMap[key] = value;
+      },
+      async destroy(key: string) {
+        app.logger.info(`destroy session ${key}`);
+        delete (app as any).sessionMap[key];
+      }
+    };
+}
+```
+
+
 ## Egg错误记录
 
 ### 解决ts报错 not used
@@ -1122,5 +1543,20 @@ constructor(app: Application) {
 }
 ```
 ::: 
+
+### mongodb连接disconnected
+
+::: danger
+2024-09-29 12:36:30,006 ERROR 15136 [egg-mongoose] mongodb://localhost:27017/lego disconnected
+2024-09-29 12:36:30,029 ERROR 15136 nodejs.MongoServerSelectionError: [egg-mongoose]connect ECONNREFUSED ::1:27017
+原因：使用了本机的IPv6地址，而mongodb默认只监听IPv4地址，导致连接失败。
+IPv4:127.0.0.1
+IPv6:[::1]
+:::
+解决办法：
+```ts
+const uri = 'mongodb://127.0.0.1:27017/lego';
+```
+
 
 

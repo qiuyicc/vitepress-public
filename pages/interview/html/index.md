@@ -50,3 +50,60 @@ W3Cworld wide web consortium是⼀个制定各种标准的⾮盈利性组织，�
 7. 设置margin只有左右有效，上下无效
 8. 设置padding只有左右有效，上下无效
 9. 可以通过设置display属性来对行内元素和块级元素进行转换
+
+## H5的新元素和特性
+
+1. 语义化标签，article、footer、header、nav、section等等
+2. 视频vedio、音频audio、画布canvas、地图map、拖放draggable、本地存储localStorage、会话存储sessionStorage、Web SQL Database、Web Workers、Web Sockets等等
+3. 表单控件，calemdar，date，time，email
+
+## 使⽤HTML5中的canvas元素绘制图形
+
+```ts
+<canvas id="myCanvas" width="200" height="100"></canvas>
+<script>
+const canvas = document.getElementById('myCanvas'); // 获取canvas元素
+const ctx = canvas.getContext('2d'); // 获取上下文
+ctx.fillStyle = 'red'; // 设置填充色
+ctx.fillRect(10, 10, 50, 50); // 绘制矩形
+</script>
+```
+
+## iframe的作用和优缺点
+
+优点：
+1. 可以在页面上单独显示一个内容，不会与其他元素产生冲突；
+2. 可以在多个页面中重用，减少代码冗余；
+3. 加载是异步的，页面可以在不等待iframe加载完成的情况下进行展示；
+4. 方便实施跨域
+
+缺点：
+1. 搜索引擎可能无法正确解析iframe的内容；
+2. 会阻塞主页面的onload事件
+3. 和主页面共享连接池，影响页面并行加载；
+
+## 怪异模式和标准模式的区别
+
+1. <span style="color:red">盒模型</span>，标准中元素的宽度和高度不包含padding和border，而怪异模式中包含；
+2. <span style="color:red">字体</span>，标准模式下，行内元素设置宽高无效，怪异模式下，行内元素设置宽高有效；
+3. <span style="color:red">表单元素</span>，标准模式下，margin：0 auto会使表单元素居中，怪异模式下无效
+
+## meta viewport
+
+```
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+```
+Viewport：针对移动端设备的。它用于控制页面在移动设备上的表现和缩放，确保用户在手机或平板上浏览网页时，能够获得良好的体验。  
+content参数：
+1. width viewport:宽度(数值/device-width)
+2. height viewport:高度(数值/device-height)
+3. initial-scale viewport:初始缩放比例(数值)
+4. minimum-scale viewport:最小缩放比例(数值)
+5. maximum-scale viewport:最大缩放比例(数值)
+6. user-scalable viewport:是否允许用户缩放(yes/no)
+
+如果不写viewport：
+1. 大多数移动浏览器会将视口宽度设置为980像素。这意味着即使设备的实际宽度小于这个值，网页内容仍然会按照981像素的宽度来渲染，导致用户无法方便地查看内容
+2. 没有设置初始缩放比例（initial-scale）的情况下，用户可能需要手动缩放页面才能查看某些内容。这会降低用户体验，特别是在小屏幕设备上。
+3. 由于视口宽度未设置为设备的实际宽度，网页内容可能会溢出屏幕，用户随时都需要左右滚动才能查看整个页面。
+4. 如果页面是响应式设计的话，缺乏视口定义可能会导致某些CSS样式（如百分比宽度）无法表现预期的效果。

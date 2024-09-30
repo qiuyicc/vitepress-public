@@ -1466,6 +1466,200 @@ constructor(app: Application) {
 ```
 
 
+
+
+### Egg文件上传之File
+
+```ts
+import { Controller } from 'egg';
+
+export default class UtilsController extends Controller {
+  async fileLocalUpload() {
+    const { ctx, app } = this;
+    const file = ctx.request.files[0];
+    let url = file.filepath.replace(app.config.baseDir, app.config.baseUrl);
+    url = url.replace(/\\/g, '/'); //注意url中可能包含反斜杠，需要替换为正斜杠
+    ctx.helper.success({ ctx, res: {url} });
+  }
+}
+```
+```ts
+//config/config.default.ts
+config.multipart = {
+  mode: 'file',
+  tmpdir:join(appInfo.baseDir, 'uploads') // 设置上传文件临时目录
+}
+config.static = {
+  dir:[
+    { prefix: '/public',dir:join(appInfo.baseDir, 'app/public') },
+    { prefix: '/uploads',dir:join(appInfo.baseDir, 'uploads') } // 设置静态文件目录
+  ]
+}
+```
+
+### JWT token
+
+1. Header,描述JWT的元数据，加密算法，以及类型；
+2. Payload，存放传递的数据
+3. Signature，签名，防止数据被篡改，使用私钥加密
+
+优点：
+4. token是无状态的，服务器不需要记录任何信息，不占用内存
+5. 多进程、多服务器没有影响；
+6. 如果不记录在cookie里，跨域无影响，记录在Header里面
+7. 和服务器解耦，任何设备可以生成token
+缺点：
+1. 无法废弃，token存在客户端
+2. 空间更大，所有数据通过base64编码，增加传输时间
+
+
+### Egg实现JWT登录
+
+### jsonwebtoken使用
+1. 安装jsonwebtoken及其类型声明文件
+2. 使用sign方法生成token，verify方法验证token
+```ts
+//在登录的时候
+import { sign,verify } from 'jsonwebtoken';
+const token = sign({username:user.username},app.config.secret,{expiresIn: '10h'})
+```
+```ts
+//在验证token的时候
+getTokenValue(){
+  const { ctx} = this;
+  const { authorization } = ctx.headers;
+  //Authorization: Bearer <token>
+  if(!ctx.header || !authorization ){
+    return false
+  }
+  if(typeof authorization ==='string'){
+    const parts = authorization.split(' ');
+    if(parts.length === 2){
+      const scheme = parts[0];
+      const token = parts[1];
+      if(/^Bearer$/i.test(scheme)){
+        return token
+      }else {
+        return false
+      }
+    }
+  }else {
+    return false
+  }
+}
+const token = this.getTokenValue();
+  if(!token){
+    return ctx.helper.error({ ctx, errType: 'loginValidateFail' });
+  }
+  try {
+    const decoded = verify(token,app.config.secret)
+    return ctx.helper.success({ ctx, res: decoded });
+    //"data": {
+      // "username": "qiuyicc@qq.com",
+      // "iat": 1727705764,
+      // "exp": 1727741764
+  // },
+  } catch (error) {
+    return ctx.helper.error({ ctx, errType: 'loginValidateFail' });
+  }
+```
+3. jwt转化为中间件
+```ts
+//app/router.ts
+const jwt = app.middleware.jwt({
+  secret: app.config.jwt.secret,
+});
+```
+```ts
+//app/middleware/jwt.ts
+import { Context,EggAppConfig } from "egg";
+import { verify } from 'jsonwebtoken'
+function getTokenValue(ctx: Context){
+    const { authorization } = ctx.headers;
+    //Authorization: Bearer <token>
+    if(!ctx.header || !authorization ){
+      return false
+    }
+    if(typeof authorization ==='string'){
+      const parts = authorization.split(' ');
+      if(parts.length === 2){
+        const scheme = parts[0];
+        const token = parts[1];
+        if(/^Bearer$/i.test(scheme)){
+          return token
+        }else {
+          return false
+        }
+      }
+    }else {
+      return false
+    }
+  }
+
+  export default (options:EggAppConfig['jwt']) => {
+    return async (ctx:Context,next:() => Promise<any>) =>{
+        const token = getTokenValue(ctx)
+        if(!token){
+            return ctx.helper.error({ctx,errType:'loginValidateFail'})
+        }
+        const { secret } = options
+        if(!secret){
+            throw new Error('secret is required for jwt middleware')
+        }
+        try {
+            const decoded = verify(token, secret)
+            ctx.state.user = decoded
+            await next()
+        } catch (error) {
+            return ctx.helper.error({ctx,errType:'loginValidateFail'})
+        }
+    }
+  }
+```
+
+### egg-jwt插件使用
+
+1. 安装egg-jwt插件
+```ts
+npm i egg-jwt --save
+```
+2. 在config/config.default.ts中配置jwt
+```ts
+config.jwt = {
+  secret: 'your-secret',
+  expiresIn: '10h',
+};
+```
+3. 在controller中使用jwt中间件
+```ts
+//app/controller/user.ts
+const token = app.jwt.sign({username:user.username},app.config.jwt.secret,{expiresIn: '10h'})
+```
+```ts
+//app/router.ts
+router.get('/api/users/:id',app.jwt as any, controller.user.showUser)
+```
+4. 对于错误的自定义捕获，利用中间件的性质捕获插件抛出的错误，返回我们自定义的错误
+```ts
+//app/middleware/customError.ts
+import { Context } from "egg";
+
+export default () =>{
+    return async (ctx: Context, next: () => Promise<any>) =>{
+        try {
+            await next();
+        } catch (error) {
+            const err = error as any;
+            if(err && err.status === 401){
+                return ctx.helper.error({ctx,errType:'loginValidateFail'})
+            }
+            throw err
+        }
+    }
+}
+```
+
+
 ## Egg错误记录
 
 ### 解决ts报错 not used

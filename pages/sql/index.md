@@ -372,6 +372,12 @@ redis是一个开源的内存数据结构存储系统。
 
 ### Redis命令
 
+```ts
+//redis启动
+redis-server //默认端口6379
+redis-server redis.conf //指定配置文件,修改配置里面的daemonize为yes可以配置为后端启动，windows下无效
+```
+
 ::: code-group
 ```ts [redis认证]
 (error) NOAUTH Authentication required.
@@ -684,6 +690,38 @@ else
 end
 ```    
 :::
+
+
+## Redis报错
+
+### Could not create server TCP listening
+
+::: danger 
+Could not create server TCP listening socket 127.0.0.1:6379: bind: 操作成功完成。  
+原因：6379端口被占用，上次的redis服务未关闭  
+:::
+```ts
+1.输入redis-cli,启动redis
+redis-cli.exe
+2.shutdown 关闭redis服务
+shutdown 
+3.如果需要认证，输入auth yourpassword
+auth yourpassword
+4.exit
+```
+
+### 在一个非套接字上尝试了一个操作
+
+::: danger 
+Could not create server TCP listening socket *:6379: bind: 在一个非套接字上尝试了一个操作。  
+原因：未指定配置文件
+:::
+```ts
+//指定配置文件
+redis-server.exe redis.windows.conf
+```
+
+
 
 
 ## MongoDB

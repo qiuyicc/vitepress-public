@@ -9,10 +9,16 @@ export default defineConfig({
   title: "秋忆CC个人博客",
   description: "部署网站",
   markdown: {},
-  lastUpdated: true,
   themeConfig: {
     logo: "/logo.png",
     outlineTitle: "文章目录",
+    lastUpdated:{
+      text:"最后更新于",
+      formatOptions:{
+        dateStyle:"full",
+        timeStyle:"medium"
+      }
+    },
     outline: [2, 6],
     // aside:false,
     // sidebar: true, // 关闭侧边栏
@@ -46,6 +52,7 @@ export default defineConfig({
         text: "面试",
         items:[
           {text:"HTML",link:"/pages/interview/html"},
+          {text:"CSS",link:"/pages/interview/css"},
         ],
       },
       { text: "TS", link: "/pages/ts" },
@@ -61,7 +68,7 @@ export default defineConfig({
       { text: "后端", items:[
         {text:"Node",link: "/pages/back_end/node" },
         {text:"SQL",link: "/pages/sql" },
-        {text:"框架",link: "/pages/back_end/frame_backend" }
+        {text:"Egg",link: "/pages/back_end/frame_backend" }
       ]},
     ],
     // sidebar:false,

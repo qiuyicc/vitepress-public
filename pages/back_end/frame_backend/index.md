@@ -1659,6 +1659,154 @@ export default () =>{
 }
 ```
 
+### egg-redis插件实现短信验证码
+
+内部逻辑实现，未使用云服务
+```ts
+//config/config.default.ts
+config.redis = {
+  client: {
+    port: 6379,
+    host: '127.0.0.1',
+    password: '123456',
+    db: 0,
+  },
+};
+```
+```ts
+//发送验证码
+async sendVerifyCode() {
+  const { ctx, app } = this;
+  const { phoneNumber } = ctx.request.body;
+  const errorRes = this.validateUserInput(userPhoneRules);
+  if (errorRes) {
+    return ctx.helper.error({
+      ctx,
+      errType: 'userValidateFail',
+      error: errorRes,
+    });
+  }
+  //检查redis中是否有发送记录
+  const preVertifyCode = await app.redis.get(
+    `phoneVertifyCode-${phoneNumber}`
+  );
+  //如果有记录，则返回错误
+  if (preVertifyCode) {
+    return ctx.helper.error({ ctx, errType: 'sendVerifyCodeFail' });
+  }
+  //生成短信验证码
+  const vertifyCode = (Math.floor(Math.random() * 9000 + 1000)).toString();
+  await app.redis.set(`phoneVertifyCode-${phoneNumber}`,vertifyCode,'ex',60)
+  ctx.helper.success({ ctx, res: { vertifyCode } });
+}
+```
+
+
+### 手机号注册登录逻辑
+1. 手机号发送验证码，上步
+2. 前端提交手机号和验证码，后端验证验证码
+```ts
+async loginByPhone() {
+  const { ctx, app } = this;
+  const { phoneNumber, vertifyCode } = ctx.request.body;
+  //检查格式
+  const errorRes = this.validateUserInput(userSendPhoneCodeRules);
+  if (errorRes) {
+    return ctx.helper.error({
+      ctx,
+      errType: 'PhoneOrVertifyCodeFial',
+      error: errorRes,
+    });
+  }
+  //检查验证码
+  const preVertifyCode = await app.redis.get(
+    `phoneVertifyCode-${phoneNumber}`
+  );
+  if (!preVertifyCode || preVertifyCode !== vertifyCode) {
+    return ctx.helper.error({ ctx, errType: 'loginVertifyCodeFail' });
+  }
+  //登录
+  const token = await ctx.service.user.loginByPhoneNumber(phoneNumber);
+  return ctx.helper.success({ ctx, res: { token } });
+}
+```
+3. 后端验证手机号是否注册，如果注册，则直接返回token，如果未注册，则创建用户并返回token
+```ts
+async loginByPhoneNumber(phoneNumber:string){
+  const { ctx,app } = this;
+  const user = await this.findByUserName(phoneNumber); //查数据库
+  //如果用户存在，则直接返回token
+  if (user) {
+    const token = await app.jwt.sign({username:user.username},app.config.jwt.secret)
+    return token
+  }
+  //如果用户不存在，则创建用户
+  const userCreateData: Partial<UserProps> = {
+    username: phoneNumber,
+    phoneNumber,
+    nickName:`lego_${phoneNumber.slice(-4)}`,
+    type:'phone'
+  };
+  const newUser = await ctx.model.User.create(userCreateData);
+  const token = await app.jwt.sign({username:newUser.username},app.config.jwt.secret)
+  return token
+}
+```
+
+### 阿里云实现短信服务
+
+1. 注册阿里云账号，购买短信服务
+2. 登录控制台，创建AccessKey，获取AccessKeyID和AccessKeySecret
+3. 安装阿里云短信SDK,并配置config
+```ts
+//config/config.default.ts
+const aliCloudConfig = {
+  accessKeyId:'省略',
+  accessKeySecret:'省略',
+  endpoint:"dysmsapi.aliyuncs.com"
+}
+```
+4. 在app里添加短信服务
+```ts
+//app/extend/application.ts
+import Dysmsapi from '@alicloud/dysmsapi20170525'
+import * as $OpenApi from '@alicloud/openapi-client';
+const ALICLIENT = Symbol('Application#aliclient');
+get AliClient():Dysmsapi {
+  const that = this as Application
+  const { accessKeyId, accessKeySecret,endpoint } = that.config.aliCloudConfig;
+  if(!this[ALICLIENT]){
+    const config = new $OpenApi.Config({
+      accessKeyId,
+      accessKeySecret
+    })
+    config.endpoint = endpoint
+    this[ALICLIENT] = new Dysmsapi(config)
+  }
+  return this[ALICLIENT]
+}
+```
+5. 创建发送短信service
+```ts
+async sendSMS(phoneNumber:string,vertifyCode:string){
+    const { app } = this
+    const sendSmsRequest = new $Dysmsapi.SendSmsRequest({
+      phoneNumbers: phoneNumber,
+      signName: '阿里云短信测试',
+      templateCode: 'SMS_154950909',
+      templateParam: `{"code":"${vertifyCode}"}`
+    })
+    const result = await app.AliClient.sendSms(sendSmsRequest)
+    return result
+  }
+```
+6. 在controller中调用发送短信service
+```ts
+const result  = await this.service.user.sendSMS(phoneNumber,vertifyCode)
+if(result.body?.code!== 'OK'){
+  return ctx.helper.error({ ctx, errType:'sendVertifyCodeError' });
+}
+```
 
 ## Egg错误记录
 

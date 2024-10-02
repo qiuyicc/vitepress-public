@@ -1808,6 +1808,60 @@ if(result.body?.code!== 'OK'){
 }
 ```
 
+### .env文件保存敏感信息
+
+1. 下载dotenv包，安装
+```ts
+npm i dotenv --save
+```
+2. 在项目根目录下创建.env文件，将敏感信息保存到该文件中
+
+```ts
+ACCESS_KEY_ID= xxxx,//省略
+ACCESS_KEY_SECRET= xxx,//注意不要带上引号,使用的时候会自动添加
+```
+3. 使用
+```ts
+import * as dotenv from 'dotenv';
+dotenv.config();
+现在就可以使用process.env.xxxx获取到环境变量的值了
+```
+4. 添加.env到gitignore中，避免将敏感信息提交到git仓库
+
+### OAuth2授权用户登录介绍
+
+OAuth2是一种授权协议，它允许第三方应用访问用户的资源，而不需要获取用户的用户名和密码。
+传统方式的缺陷：
+1. 为了后续服务，需要保存用户的密码，增加了安全风险
+2. 没法限制用户获得授权的范围和有效期
+3. 用户只有修改密码，才能收回赋予第三方应用的权力
+4. 只要有一个第三方应用被破解，就会导致用户密码泄露
+
+OAuth2的优点：
+1. 在客户端和服务商之间，提供了一个授权层
+2. 客户不能直接登录服务商，只能登录授权层
+3. 客户端登录授权层所用的令牌，与用户密码不同，用户可以在登录的时候，指定授权层令牌的权限范围和有效期
+
+Token的优点：
+1. 令牌是短期的，到期会自动失效，用户自己无法修改
+2. 令牌可以被数据所有者撤销，会立即失效
+3. 令牌有权限范围(scope)
+
+OAuth2的授权方式：
+1. 授权码
+2. 隐藏式
+3. 密码式
+4. 客户端凭证
+
+### OAuth2授权码模式
+
+1. 点击某个第三方应用，比如gitee，跳转到gitee的授权登录页面，携带参数?client_id="xx"&redirect_uri=callback&scope=read,client_id为gitee的第三方应用id，redirect_uri为回调地址，scope为授权范围
+2. 用户点击同意，跳转回callback地址，携带code参数
+3. 应用向gitee发送post请求，携带https://gitee.com/oauth/token?grant_type=authorization_code&code={code}&client_id={client_id}&redirect_uri={redirect_uri}&client_secret={client_secret}
+4. gitee确认信息无误，返回accesstoken、refreshtoken、token_type、scope、expires_in等参数
+5. 应用拿到accesstoken，请求API数据，拿到用户信息
+
+
 ## Egg错误记录
 
 ### 解决ts报错 not used

@@ -1859,7 +1859,286 @@ OAuth2的授权方式：
 2. 用户点击同意，跳转回callback地址，携带code参数
 3. 应用向gitee发送post请求，携带https://gitee.com/oauth/token?grant_type=authorization_code&code={code}&client_id={client_id}&redirect_uri={redirect_uri}&client_secret={client_secret}
 4. gitee确认信息无误，返回accesstoken、refreshtoken、token_type、scope、expires_in等参数
-5. 应用拿到accesstoken，请求API数据，拿到用户信息
+5. 应用拿到accesstoken，请求Gitee的API数据，拿到用户信息
+
+::: code-group
+```ts [router.ts]
+router.get('/api/users/passport/gitee',controller.user.oauth) //跳转到gitee授权页面
+router.get('/api/users/passport/gitee/callback',controller.user.oauthByGitee) //gitee回调地址
+```
+```ts [config/config.default.ts]
+const giteeOauthConfig = {
+  cid:process.env.CLIENT_ID,
+  secret:process.env.CLIENT_SECRET,
+  redirectURL:'http://localhost:7001/api/users/passport/gitee/callback', //回调地址
+  authURL:'https://gitee.com/oauth/token?grant_type=authorization_code', //授权地址
+  giteeUserAPI:'https://gitee.com/api/v5/user' //获取用户信息地址
+}
+```
+```ts [controller/user.ts]
+//跳转到oauth页面
+async oauth(){
+  const { ctx, app, service } = this;
+  const { cid,redirectURL } = app.config.giteeOauthConfig
+  ctx.redirect(`https://gitee.com/oauth/authorize?client_id=${cid}&redirect_uri=${redirectURL}&response_type=code`)
+}
+//跳转回来后获取token
+async oauthByGitee(){
+  const { ctx} = this;
+  const { code } = ctx.request.query
+  try {
+    const token = await ctx.service.user.loginByGitee(code)
+    if(token){
+      ctx.helper.success({ ctx, res: { token } })
+    }
+  } catch (error) {
+    ctx.helper.error({ ctx, errType: 'giteeOauthFail' })
+  }
+}
+```
+```ts [service/user.ts]
+interface GiteeUserDataType {
+  id: number;
+  login: string;
+  name: string;
+  avatar_url: string;
+  email: string;
+}
+//get access token from gitee
+async getAccessToken(code: string) {
+  const { ctx, app } = this;
+  const { cid, secret, redirectURL, authURL } = app.config.giteeOauthConfig;
+  const { data } = await ctx.curl(authURL, {
+    method: 'POST',
+    headers:{
+      'Content-Type': 'application/json',
+    },
+    dataType: 'json',
+    data: {
+      code,
+      client_id: cid,
+      redirect_uri: redirectURL,
+      client_secret: secret,
+    },
+  });
+  return data.access_token;
+}
+async getGiteeUserInfo(accessToken: string) {
+  const { ctx, app } = this;
+  const { giteeUserAPI } = app.config.giteeOauthConfig;
+  const { data } =await ctx.curl<GiteeUserDataType>(`${giteeUserAPI}?access_token=${accessToken}`, {
+    method: 'GET',
+    dataType: 'json',
+  })
+  return data;
+}
+async loginByGitee(code: string) {
+  const { ctx, app } = this;
+  const accessToken = await this.getAccessToken(code);
+  const giteeUserInfo = await this.getGiteeUserInfo(accessToken);
+  //检查用户是否存在
+  const { id, name, avatar_url, email } = giteeUserInfo;
+  const stringId = id.toString();
+  const user = await this.findByUserName(`Gitee_${stringId}`)//创建Gitee_id的用户名,防止与其他平台的用户名冲突
+  if (user) {
+    const token = app.jwt.sign({ username: user.username }, app.config.jwt.secret);
+    return token;
+  }
+  const userCreateData: Partial<UserProps> = {
+    oauthID:stringId,
+    provider: 'gitee',
+    username: `Gitee_${stringId}`,
+    picture: avatar_url,
+    nickName:name,
+    email,
+    type: 'oauth',
+  }
+  const newUser = await ctx.model.User.create(userCreateData);
+  const token = app.jwt.sign({ username: newUser.username }, app.config.jwt.secret);
+  return token;
+}
+```
+:::
+
+### OAuth2前后端分离实现登录
+
+1. 前端点击OAuth2按钮,window.open打开授权地址
+2. OAuth2同意授权,跳转到OAuth2回调地址,携带code参数
+3. 经过后续一些列处理创建用户信息和拿到access_token
+4. 不直接返回access_token，而是直接渲染页面,window.opener.postMessage(access_token.'http://localhost:xx')
+5. 前端使用window.addEventListener('message',(event)=>{const token = event.data;})接收access_token
+
+::: code-group
+```ts [App.vue]
+<script  lang="ts">
+// import HelloWorld from './components/HelloWorld.vue'
+import { defineComponent,onMounted } from 'vue';
+import axios from 'axios';
+export default defineComponent({
+  components: {},
+  setup() {
+    onMounted(() => {
+      window.addEventListener('message', (event) => {
+        const {type,token} = event.data;
+        if(type === 'oauth'){
+          axios.get('http://localhost:7001/api/users/getUserInfo',{
+            headers:{
+              Authorization: `Bearer ${token}`
+            }
+          }).then(res => {
+            console.log(res);
+          })
+        }
+      })
+    })
+    const open = () => {
+      window.open('http://localhost:7001/api/users/passport/gitee', '_blank', 'width=500,height=500');
+    }
+    const login = () => {
+      axios.post('http://localhost:7001/api/users/login',{
+        username:'qiuyicc@qq.com',
+        password:"123456"
+      }).then(res => {
+        console.log(res);
+      })
+    }
+    return {
+      open,
+      login
+    }
+  }
+})
+</script>
+
+<template>
+  <button @click="open">使用Gitee账号登录</button>
+  <button @click="login">登录测试</button>
+</template>
+```
+```ts [view/success.nj]
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>授权成功</title>
+</head>
+<body>
+    <h1>授权成功</h1>
+    <h1>2秒钟后关闭</h1>
+</body>
+<script>
+window.onload = () =>{
+    setTimeout(() => {
+        const message = {
+            type:'oauth',
+            token:'{{ token }}'
+        }
+        window.opener.postMessage(message,'http://localhost:5173')
+        window.close();
+    },2000)
+}
+
+</script>
+</html>
+```
+```ts [controller/user.ts]
+  //跳转回来后获取token
+  async oauthByGitee() {
+    const { ctx } = this;
+    const { code } = ctx.request.query;
+    try {
+      const token = await ctx.service.user.loginByGitee(code);
+      if (token) {
+        //渲染模板，模板中使用postmessage向前端传递消息
+        await ctx.render('success.nj', { token });
+        // ctx.helper.success({ ctx, res: { token } })
+      }
+    } catch (error) {
+      ctx.helper.error({ ctx, errType: 'giteeOauthFail' });
+    }
+  }
+}
+```
+:::
+
+### Egg实现CORS跨域
+原理就是使用中间件在每个请求后添加响应头，允许跨域请求。
+1. 安装 egg-cors 插件
+```ts
+npm i egg-cors --save
+```
+2. 在config/plugin.ts中配置插件
+3. 在config/config.default.ts中配置白名单
+```ts
+config.cors = {
+  origin:'http://localhost:5173',
+  allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
+}
+```
+
+### Egg实现通用查询配置
+
+1. 定义通用查询类型
+```ts
+export interface IndexCondition {
+    pageIndex?: number;
+    pageSize?: number;
+    select?: string | string[]; //查询字段
+    populate?: { path?: string; select?: string; } | string; //关联查询
+    customSort?: Record<string, any>; //自定义排序
+    find?: Record<string, any>; //查询条件
+  }
+```
+2. 使用
+```ts
+//controller/work.ts
+async myList() {
+  const { ctx } = this
+  const userId = ctx.state.user._id
+  const { pageIndex, pageSize, isTemplate, title } = ctx.query
+  const findConditon = {
+    user: userId,
+    ...(title && { title: { $regex: title, $options: 'i' } }),//$regex表示模糊查询,$options表示大小写敏感
+    ...(isTemplate && { isTemplate: !!parseInt(isTemplate) })
+  }
+  const listCondition: IndexCondition = {
+    select: 'id author copiedCount coverImg desc title user isHot createdAt',
+    populate: { path: 'user', select: 'username nickName picture' },
+    find: findConditon,
+    ...(pageIndex && { pageIndex: parseInt(pageIndex) }),
+    ...(pageSize && { pageSize: parseInt(pageSize) })
+  }
+  const res = await ctx.service.work.getList(listCondition)
+  ctx.helper.success({ ctx, res })
+}
+```
+```ts
+//service/work.ts
+const defaultIndexCondition: Required<IndexCondition> = {
+  pageIndex: 0,
+  pageSize: 10,
+  select: '',
+  populate: '',
+  customSort: { createdAt: -1 },
+  find: {},
+};
+async getList(condition: IndexCondition) {
+  const fcondition = { ...defaultIndexCondition, ...condition };
+  const { pageIndex, pageSize, select, populate, customSort, find } =
+    fcondition;
+  const skip = pageIndex * pageSize;
+  const res = await this.ctx.model.Work.find(find)
+    .select(select)
+    .populate(populate as  PopulateOptions)
+    .skip(skip)
+    .limit(pageSize)
+    .sort(customSort)
+    .lean();
+  const count = await this.ctx.model.Work.countDocuments(find);
+  return { count, list: res, pageSize, pageIndex };
+}
+```
 
 
 ## Egg错误记录

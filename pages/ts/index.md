@@ -349,7 +349,7 @@ const todo: Readonly<Todo> = {
 
 #### Record
 ```ts
-// Record<K, T> 构造一个对象类型，其属性 K 的值是 T 类型
+// Record<K, T> 构造一个对象类型，其属性为 K 类型，值是 T 类型
 const todoMap: Record<string, Todo> = {
     '1': { title: 'Learn TypeScript', description: 'Basics' }
 };

@@ -5,7 +5,7 @@ layout: home
 hero:
   name: "秋忆CC的知识库"
   text: "千里之行，始于足下。"
-  tagline: "好记性不如烂笔头"
+  tagline: "菜就多练"
   image: 
     src: /bg.jpg
     alt: "bg"

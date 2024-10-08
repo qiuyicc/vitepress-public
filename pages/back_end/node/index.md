@@ -549,6 +549,16 @@ readStream.on("end", () => {
   console.log("读取完成");
 });
 ```
+```ts
+import { createServer } from "node:http";
+import { createReadStream } from "node:fs";
+const server = createServer()
+server.on("request", (req, res) => {
+  const data = createReadStream("./bigFile.txt");
+  data.pipe(res)
+})
+server.listen(8000)
+```
 
 #### mkdir
 

@@ -1468,34 +1468,7 @@ constructor(app: Application) {
 
 
 
-### Egg文件上传之File
 
-```ts
-import { Controller } from 'egg';
-
-export default class UtilsController extends Controller {
-  async fileLocalUpload() {
-    const { ctx, app } = this;
-    const file = ctx.request.files[0];
-    let url = file.filepath.replace(app.config.baseDir, app.config.baseUrl);
-    url = url.replace(/\\/g, '/'); //注意url中可能包含反斜杠，需要替换为正斜杠
-    ctx.helper.success({ ctx, res: {url} });
-  }
-}
-```
-```ts
-//config/config.default.ts
-config.multipart = {
-  mode: 'file',
-  tmpdir:join(appInfo.baseDir, 'uploads') // 设置上传文件临时目录
-}
-config.static = {
-  dir:[
-    { prefix: '/public',dir:join(appInfo.baseDir, 'app/public') },
-    { prefix: '/uploads',dir:join(appInfo.baseDir, 'uploads') } // 设置静态文件目录
-  ]
-}
-```
 
 ### JWT token
 
@@ -2139,6 +2112,649 @@ async getList(condition: IndexCondition) {
   return { count, list: res, pageSize, pageIndex };
 }
 ```
+
+### Egg装饰器使用
+
+```ts
+//app/decorator/checkPermission.ts
+import { GlobalErrorTypes } from '../error/index';
+import { Controller } from 'egg';
+
+export default function checkPermission(
+  modelName: string,
+  errorType: GlobalErrorTypes,
+  userKey = 'user'
+) {
+  return function (prototype, key: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+    descriptor.value = async function (...args: any[]) {
+      const that = this as Controller;
+      //@ts-ignore
+      const { ctx } = that;
+      const { id } = ctx.params;
+      const userId = ctx.state.user._id;
+      const certianRecord = await ctx.model[modelName].findOne({id})            
+      if (!certianRecord || certianRecord[userKey].toString() !== userId) {
+        return ctx.helper.error({ ctx, errType:errorType });
+      }
+      await originalMethod.apply(this, args);
+    };
+  };
+}
+```
+```ts
+//app/controller/work.ts
+@checkPermission('Work','workNoPermission')
+async update(){
+  const { ctx, service } = this;
+  const { id } = ctx.params
+  const payload = ctx.request.body
+  const workData = await ctx.model.Work.findOneAndUpdate({id},payload,{new:true}).lean()
+  ctx.helper.success({ ctx, res: workData })
+}
+```
+
+### Egg文件上传之File
+
+```ts
+import { Controller } from 'egg';
+
+export default class UtilsController extends Controller {
+  async fileLocalUpload() {
+    const { ctx, app } = this;
+    const file = ctx.request.files[0];
+    let url = file.filepath.replace(app.config.baseDir, app.config.baseUrl);
+    url = url.replace(/\\/g, '/'); //注意url中可能包含反斜杠，需要替换为正斜杠
+    ctx.helper.success({ ctx, res: {url} });
+  }
+}
+```
+```ts
+//config/config.default.ts
+config.multipart = {
+  mode: 'file',
+  tmpdir:join(appInfo.baseDir, 'uploads') // 设置上传文件临时目录
+}
+config.static = {
+  dir:[
+    { prefix: '/public',dir:join(appInfo.baseDir, 'app/public') },
+    { prefix: '/uploads',dir:join(appInfo.baseDir, 'uploads') } // 设置静态文件目录
+  ]
+}
+```
+
+使用sharp处理图片
+```ts
+async fileLocalUpload() {
+  const { ctx, app } = this;
+  const { filepath } = ctx.request.files[0];
+
+  // 生成sharp实例
+  const imageSource = sharp(filepath);
+  const metaData = await imageSource.metadata(); //获取图片元数据
+  let thumbFileUrl = ''
+  if(metaData.width && metaData.width > 300){
+      const { name,ext,dir } = parse(filepath);
+      console.log('baseDir',app.config.baseDir);
+      const thumbFilePath = join(dir,`${name}-thumbnail${ext}`)
+      await imageSource.resize({width: 300}).toFile(thumbFilePath); //生成缩略图
+      thumbFileUrl = thumbFilePath.replace(app.config.baseDir, app.config.baseUrl)
+      thumbFileUrl = thumbFileUrl.replace(/\\/g, '/') //注意url中可能包含反斜杠，需要替换为正斜杠
+      console.log('thumbFileUrl',thumbFileUrl);
+      
+  }
+  let url = filepath.replace(app.config.baseDir, app.config.baseUrl);
+  url = url.replace(/\\/g, '/'); //注意url中可能包含反斜杠，需要替换为正斜杠
+  
+  ctx.helper.success({ ctx, res: {url,thumbFileUrl:thumbFileUrl?thumbFileUrl:url} });
+}
+```
+
+### Egg文件上传之Stream
+
+```ts
+pathToUrl(filepath:string) {
+  const { app } = this;
+  let url = filepath.replace(app.config.baseDir, app.config.baseUrl);
+  url = url.replace(/\\/g, '/');
+  return url
+}
+
+async fileUploadByStream() {
+  const { ctx, app } = this;
+  const stream = await ctx.getFileStream(); //获取上传文件流，注意只能上传单个文件
+  const uuid = nanoid(6);
+  const saveFilePath = join(app.config.baseDir,'uploads',uuid+extname(stream.filename)) //设置保存路径及其扩展名
+  const saveThumbnailPath = join(app.config.baseDir,'uploads',uuid+'_thumbnail'+extname(stream.filename))//设置缩略图保存路径及其扩展名
+  const target = createWriteStream(saveFilePath);//创建写入流
+  const target2 = createWriteStream(saveThumbnailPath);
+  const savePromise = new Promise((resolve, reject) => {
+    stream.pipe(target)//写入文件流
+    .on('finish',resolve)
+    .on('error',reject)
+  })
+  const transformer = sharp().resize({width: 300})//创建缩略图转换器，转换流 // [!code ++]
+  const saveThumbnailPromise = new Promise((resolve, reject) => {
+    stream.pipe(transformer).pipe(target2)//写入缩略图流 // [!code ++]
+    .on('finish',resolve)
+    .on('error',reject)
+  })
+  await Promise.all([savePromise,saveThumbnailPromise])
+  ctx.helper.success({ctx,res:{
+    url:this.pathToUrl(saveFilePath),//转换文件url
+    thumbFileUrl:this.pathToUrl(saveThumbnailPath)
+  }})
+}
+```
+pipe改：对于每个pipe的错误bug，需要在**每个**pipe的on('error',reject)中处理，否则会导致后续pipe无法执行，这样做很不方便，容易出错，使用pipeline方法可以解决这个问题：
+```ts
+import { pipeline } from 'stream/promises'; //引入pipeline方法的prmoise版本
+async fileUploadByStream() {
+  ............
+  const savePromise = pipeline(stream,target);
+  const transformer = sharp().resize({width: 300})
+  const saveThumbnailPromise = pipeline(stream,transformer,target2)
+  try {
+    await Promise.all([savePromise,saveThumbnailPromise])
+  } catch (error) {
+    return ctx.helper.error({ctx,errType:'uploadFail'})
+  }
+  ctx.helper.success({ctx,res:{
+    url:this.pathToUrl(saveFilePath),
+    thumbFileUrl:this.pathToUrl(saveThumbnailPath)
+  }})
+}
+```
+
+### Egg文件上传之OSS
+
+1. 安装egg-oss
+```ts
+npm i egg-oss --save //已经支持TS
+```
+2. 启用插件并配置
+```ts
+config.oss = {
+  client:{
+    accessKeyId:process.env.ACCESS_KEY_ID || '',
+    accessKeySecret:process.env.ACCESS_KEY_SECRET || '',
+    bucket:'my-lego-backend',
+    endpoint:'oss-cn-chengdu.aliyuncs.com',
+    timeout: '60s'
+  }
+}
+```
+3. 使用
+```ts
+async uploadToOSS() {
+  const { ctx, app } = this;
+  const stream = await ctx.getFileStream(); //注意getFileStream()只能上传单文件
+  const saveOssPath = join('imooc-test',nanoid(6)+extname(stream.filename))//设置保存路径及其扩展名
+  try {
+    const res = await ctx.oss.put(saveOssPath,stream)//上传文件到OSS
+    const { name,url } = res
+    ctx.helper.success({ctx,res:{name,url}})
+  } catch (error) {
+    await sendToWormhole(stream) //使用stream-wormhole销毁上传文件流
+    ctx.helper.error({ctx,errType:'uploadOSSFail'})
+  }
+}
+```
+
+### Egg文件上传之busboy
+
+如果使用File模式上传多文件，直接循环数组处理即可  
+使用busboy上传多文件,多个文件上传底层库，基于事件
+1. 安装busboy
+```ts
+npm i busboy --save
+npm i @types/busboy --save-dev
+```
+2. 编写上传文件处理函数
+```ts
+import  busboy from 'busboy';
+..............
+uploadFileUseBusboy() {
+  const { ctx,app } = this;
+  const resultArr:string[] = [] 
+  return new Promise<string[]>((resolve, reject) => {
+    const bb = busboy({ headers: ctx.req.headers });
+    bb.on('file',(name,file,info)=>{
+      //文件流
+      const uuid = nanoid(6);
+      const saveFilePath = join(app.config.baseDir,'uploads',uuid+extname(info.filename))
+      const target = createWriteStream(saveFilePath);
+      file.pipe(target);
+      file.on('end',()=>{
+        resultArr.push(saveFilePath)
+      })
+    })
+    bb.on('field',(name,val,info)=>{
+      //对于文本类型
+      console.log(name,val,info);
+    })
+    bb.on('finish',()=>{
+      resolve(resultArr)
+    })
+    ctx.req.pipe(bb)
+  })
+}
+async testBusBoy(){
+  const { ctx } = this;
+  const res = await this.uploadFileUseBusboy()
+  ctx.helper.success({ctx,res})
+}
+```
+
+### Egg文件上传之co-busboy
+
+egg内置了multipart模块，可以直接使用multipart上传文件，其底层依赖于co-busboy
+
+![上传文件](/uploadCut.png)
+```ts
+async uploadMultipleByBusboy() {
+  const { ctx, app } = this;
+  const parts = ctx.multipart() // [!code ++]
+  const part1 = await parts();
+  console.log(part1); //[ 'text', 'heelo', false, false ]
+  const part2 = await parts();
+  console.log(part2); // FileStream 
+  await sendToWormhole(part2) // 处理文件流，需要销毁，否则会卡死
+  const part3 = await parts();
+  console.log(part3); //underfined
+}
+```
+使用egg内置multipart模块上传多文件
+```ts
+async uploadMultipleByBusboy() {
+  const { ctx, app } = this;
+  const parts = ctx.multipart()
+  const resultArr:string[] = []
+  let part: FileStream | string[]; //一种文本一种文件
+  while((part = await parts())){ // [!code ++]
+    if(!Array.isArray(part)){
+      try {
+        const uuid = nanoid(6);
+        const saveFilePath = join('imooc-test',uuid+extname(part.filename))
+        const result = await app.oss.put(saveFilePath,part) //上传文件到OSS
+        const { url } = result //获取上传文件的url
+        resultArr.push(url)
+      } catch (error) {
+        await sendToWormhole(part)
+        return ctx.helper.error({ctx,errType:'uploadOSSFail'})
+      }
+    }
+  }
+  ctx.helper.success({ctx,res:{resultArr}})
+}
+```
+
+### Egg文件上传之限制文件大小和格式
+
+1. 在config/config.default.ts中配置
+```ts
+config.multipart = {
+  // mode: 'file',
+  // tmpdir: join(appInfo.baseDir, 'uploads'), // 设置上传文件临时目录
+  whitelist:['.png','.jpg','.gif','.webp','.jpeg'],
+  fileSize: '20kb' // 限制上传文件大小，光在此配置不生效
+};
+```
+2. 修改上传文件处理函数
+```ts
+async uploadMultipleByBusboy() {
+  const { ctx, app } = this;
+  const { fileSize } = app.config.multipart // 获取文件大小限制
+  const parts = ctx.multipart({
+    limits:{
+      fileSize:fileSize as number //传递参数给multipart模块,再传递给co-busboy底层限制文件大小
+    }
+  })
+  const resultArr:string[] = []
+  let part: FileStream | string[];
+  while((part = await parts())){
+    if(!Array.isArray(part)){
+      try {
+        const uuid = nanoid(6);
+        const saveFilePath = join('imooc-test',uuid+extname(part.filename))
+        const result = await app.oss.put(saveFilePath,part)
+        const { url } = result
+        resultArr.push(url)
+        if(part.truncated){ //如果文件超出大小，会被添加truncated属性
+          await ctx.oss.delete(saveFilePath) //删除上传文件，已经传递了20kb的文件到服务器，需要清除
+          return ctx.helper.error({ctx,errType:'uploadFileSizeFail'})
+        }
+      } catch (error) {
+        await sendToWormhole(part)
+        return ctx.helper.error({ctx,errType:'uploadOSSFail'})
+      }
+    }
+  }
+  ctx.helper.success({ctx,res:{resultArr}})
+}
+```
+3. 限制上传文件格式
+```ts
+import { Context } from "egg";
+export default () =>{
+    return async (ctx: Context, next: () => Promise<any>) =>{
+        try {
+            await next();
+        } catch (error) {
+            const err = error as any;
+            if(err && err.status === 401){
+                return ctx.helper.error({ctx,errType:'loginValidateFail'})
+            } else if(ctx.path === '/api/utils/uploadMultiple'){ //上传文件接口
+                if(err && err.status === 400){ //上传文件格式错误
+                    //修改向外抛出的错误信息
+                    return ctx.helper.error({ctx,errType:'uploadFileFormatFail',error:err.message})
+                }
+            }
+            throw err
+        }
+    }
+}
+```
+
+### Egg重构Router
+
+1. 重构jwt验证
+```ts
+config.jwt = {
+  enable: true,
+  secret: process.env.JWT_SECRET || '',
+  match:[ // 匹配要验证的接口
+    '/api/users/getUserInfo',
+    '/api/works',
+    '/api/utils'
+  ]
+};
+```
+2. 重构路由
+```ts
+router.prefix('/api') //使用prefix方法设置路由前缀
+router.post('/api/users/create', controller.user.createUserControllerByEmail);//改变前
+ ====>
+router.post('/users/create', controller.user.createUserControllerByEmail);//改变后
+```
+
+### Egg SSR简单使用
+
+1. 安装Vue
+```ts
+npm i vue@next --save
+```
+2. 使用,高版本的Vue已经内置了SSR渲染器，不需要额外安装
+```ts
+import { createSSRApp } from 'vue'
+import { renderToString,renderToNodeStream } from '@vue/server-renderer'
+async renderH5Page(){
+  const { ctx, app } = this;
+  const ssrApp = createSSRApp({
+    data:() =>({msg:'hello ssr'}),
+    template:'<h1>{{msg}}</h1>'
+  })
+  //renderToString写法
+  // const appContent = await renderToString(ssrApp)
+  // ctx.response.type = 'text/html'
+  // ctx.body = appContent
+  // renderToNodeStream写法
+
+  const stream = await renderToNodeStream(ssrApp)
+  ctx.status = 200
+  await pipeline(stream,ctx.res)
+}
+```
+
+### Egg SSR渲染H5页面
+
+```ts
+//app/controller/utils.ts
+async renderH5Page(){
+  const { ctx, app } = this;    
+  const { id:idAndUuid } = ctx.params;
+  const query = this.splitIdAndUuid(idAndUuid)
+  try {      
+    const {html,title,desc，bodyStyle} = await this.service.utils.renderToPageData(query)      
+    await ctx.render('page.nj',{html,title,desc,bodyStyle})
+  } catch (error) {
+    ctx.helper.error({ctx,errType:'h5WorkFail'})
+  }
+}
+```
+```ts
+//app/service/utils.ts
+import { Service } from "egg";
+import { createSSRApp } from 'vue'
+import LegoCompoents from 'lego-components'
+import { renderToString } from '@vue/server-renderer'
+//实现响应式，把px转为vw
+pxToVw(components=[]){
+    const reg = /^(\d+(\.\d+)?)px$/ //匹配px单位
+    components.forEach(component => {
+        const props = (component as { props: Record<string, any> }).props || {};            
+        Object.keys(props).forEach(key => {  
+            const val = props[key]
+            if(typeof val !== 'string'){
+                return 
+            }
+            if(reg.test(val) === false){
+                return
+            }
+            const arr = val.match(reg) || []
+            const numStr = arr[1]
+            const num = parseFloat(numStr)
+            const vwNum =  (num / 375) * 100             
+            props[key] = `${vwNum.toFixed(2)}vw`
+        })
+    })
+}
+//对于背景style
+propsToStyle(props={}){
+  const keys = Object.keys(props)
+  const styleArr = keys.map(key =>{
+      const formatkey = key.replace(/([A-Z])/g, c =>`-${c.toLocaleLowerCase()}`)
+      const value = props[key]
+      return `${formatkey}:${value}`
+  })
+  return styleArr.join(';')
+}
+//渲染页面
+async renderToPageData(query:{id:string,uuid:string}){
+    const work = await this.ctx.model.Work.findOne(query).lean() //找到作品
+    if(!work){
+        throw new Error('work not found')
+    }
+    const {title="默认",desc="默认",content} = work
+    const parseContent  = JSON.parse(content &&content as any)       
+    this.pxToVw(parseContent.components)//处理响应式
+    const ssrApp = createSSRApp({
+        data:()=>{
+            return {
+                compoents:(parseContent.components) || []
+            }
+        },
+        template:`<final-page :components="compoents"/>`, //渲染组件
+    })
+    ssrApp.use(LegoCompoents)//使用组件库
+     const html = await renderToString(ssrApp)
+    const bodyStyle = this.propsToStyle(parseContent.props)
+    return {
+        html,
+        title,
+        desc
+    }
+}
+```
+```ts 
+//app/view/page.nj
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{desc}}">
+    <link href="https://cdn.bootcdn.net/ajax/libs/reseter.css/2.0.0/minireseter.css" rel="stylesheet">
+    <title>{{title}}</title>
+</head>
+<body style="{{bodyStyle}}">
+    {{html | safe}}
+</body>
+</html>
+```
+
+### Egg SSR渲染组件库样式问题
+
+1. 直接拷贝样式文件到public目录，然后在模板中引用
+缺点：
+  1. 样组件库升级，样式有更新的时候，需要重新拷贝，非常繁琐
+  2. 当有更多JS功能时候，会出现很多限制；
+  3. 使用第三方库的时候不方便，也需要拷贝第三方库的umd的CSS模块到public目录，然后在模板中引用，不方便管理。
+
+2. 使用webpack单独打包样式文件和JS文件，然后在模板中引用
+```ts
+npm i webpack webpack-cli //webpack安装
+npm i css-loader //css加载器
+npm i mini-css-extract-plugin //css提取插件
+npm i html-webpack-plugin //html模板插件
+npm i filemanager-webpack-plugin --save-dev //文件管理插件
+npm i clean-webpack-plugin --save-dev //清理插件
+```
+::: code-group
+```ts [webpack/index.js]
+import 'lego-components/dist/lego-components.css'
+```
+```ts [webpack/template.html]
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{desc}}">
+    <link href="https://cdn.bootcdn.net/ajax/libs/reseter.css/2.0.0/minireseter.css" rel="stylesheet">
+    <title>{{title}}</title>
+</head>
+<body style="{{ bodyStyle }}">
+    {{html | safe}}
+</body>
+</html>
+```
+```ts [webpack/webpack.config.js]
+const path = require('path');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const FileManagerPlugin = require('filemanager-webpack-plugin');
+const buildFileDest = path.resolve(__dirname,'../app/public')
+const {CleanWebpackPlugin} = require('clean-webpack-plugin');
+const copyTemplateFileDest = path.resolve(__dirname,'../app/view')
+
+module.exports = {
+    mode:'production',
+    context: path.resolve(__dirname,'../webpack'),
+    entry:'./index.js',
+    output:{
+        path:buildFileDest,
+        filename:'bundle.[fullhash:8].js',
+        publicPath:'/public/'
+    },
+    module:{
+        rules:[
+            {
+                test:/\.css$/,
+                use:[
+                    MiniCssExtractPlugin.loader,
+                    'css-loader'
+                ]
+            }
+        ]
+    },
+    plugins:[
+        new CleanWebpackPlugin(),
+        new MiniCssExtractPlugin({
+            filename:'[name].[fullhash:8].css'
+        }),
+        new HtmlWebpackPlugin({
+            filename:'page.nj',
+            template:path.resolve(__dirname,'./template.html'),
+        }),
+        new FileManagerPlugin({
+            events:{
+                onEnd:{
+                    copy:[
+                        {
+                            source:path.join(buildFileDest,'page.nj'),
+                            destination:path.join(copyTemplateFileDest,'page.nj')
+                        }
+                    ]
+                }
+            }
+        })   
+    ]
+}
+```
+```ts [package.json]
+"build:template":"npx webpack --config webpack/webpack.config.js"
+```
+:::
+
+### Egg Webpac结合上传OSS
+
+将webpack打包后的文件上传到OSS，实现静态资源托管
+```ts
+//webpack/uploadToOSS.js
+const OSS = require('ali-oss');
+const path = require('path');
+const dotenv = require('dotenv');
+const fs = require('fs');
+
+dotenv.config({
+    path: path.resolve(__dirname, '../.env') //注意修改路径，默认目录是根目录，而uploadToOSS.js在webpack目录下
+});
+const publicPath = path.resolve(__dirname, '../app/public');
+const client = new OSS({
+        accessKeyId:process.env.ACCESS_KEY_ID || '',
+        accessKeySecret:process.env.ACCESS_KEY_SECRET || '',
+        bucket:'my-lego-backend',
+        endpoint:'oss-cn-chengdu.aliyuncs.com',
+        timeout: '60s'  
+})
+async function uploadToOSS() {
+    const publicFiles = fs.readdirSync(publicPath)
+    const files = publicFiles.filter(fileName => fileName !== 'page.nj')
+    const res = await Promise.all(files.map(async fileName => {
+        const saveOssPath = path.join('h5-assets',fileName)
+        const filePath = path.join(publicPath, fileName)
+        const result = await client.put(saveOssPath, filePath)
+        const { url } = result
+        return url
+    }))
+    console.log('上传成功',res)
+}
+uploadToOSS()
+```
+实现webpack环境变量区分，生产环境再上传
+```ts
+//webpack可以接受环境变量，要把原来的对象暴露改为函数暴露
+module.exports = (env) =>{
+  return {
+    ..............
+    output: {
+    path: buildFileDest,
+    filename: 'bundle.[fullhash:8].js',
+    publicPath: env.production?'http://my-lego-backend.oss-cn-chengdu.aliyuncs.com/h5-assets/':'/public/',
+    },
+  }
+}
+```
+```ts
+//package.json
+"build:template:dev": "npx webpack --config webpack/webpack.config.js",
+"build:template:pro": "npx webpack --config webpack/webpack.config.js --env production && npm run upload",
+"upload": "node webpack/uploadToOSS.js"
+```
+
+### 
+
 
 
 ## Egg错误记录

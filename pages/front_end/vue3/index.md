@@ -701,3 +701,86 @@ npm unlink <package-name> //解除链接
 ```ts
 npm ls -g --depth=0 //查看全局安装的包及其链接状态
 ```
+
+### 组件库的发布
+
+1. 组件库在发布之前需要进行代码检查和测试，确保组件库的功能正常；
+```ts
+"scripts": {
+  "serve": "vue-cli-service serve",
+  "build": "npm run clean && npm run build:esm && npm run build:umd",
+  "test:watch": "vue-cli-service test:unit --watch"
+  "test": "vue-cli-service test:unit"
+  "lint": "vue-cli-service lint --max-warnings 5",
+  "build:esm": "rollup --config rollup.config.esm.js",
+  "build:umd": "rollup --config rollup.config.umd.js",
+  "clean": "rimraf ./dist",
+  "prepublishOnly": "npm run lint && npm run test &&npm run build" // 发布前的检查 // [!code ++]
+}
+```
+2. 可以使用husky工具来进行git hooks，在commit和push前进行代码检查和测试；
+```ts
+npm i husky@4 --save-dev
+```
+```ts
+//package.json
+"husky":{
+  "hooks":{
+    "pre-commit":"npm run lint && npm run test",
+  }
+}
+```
+
+### CI/CD
+
+1. 本地commit钩子函数完成commit验证；
+2. 代码push到远端；
+3. 跑特定的test，不仅是本机的，也有可能是时间长的E2E test；
+4. test通过后可能还会检查是否有新的tag，假如有就自动push一个新的版本
+5. 自动部署文档站点.....
+
+这些任务，如果手动操作，耗时耗力，还容易出错，所以需要自动化工具来完成这些工作。
+
+**CI**：持续集成，频繁地将代码集成到主干，一旦开发人员对应用所作的更改被合并，系统就会通过自动构建应用并运行不同级别的自动化测试(通常是单元测试和集成测试)来验证这些更改，确保这些应用无害。其目的就是让产品可以快速迭代，同时还能保持高质量
+
+**CD**：持续交付，频繁地将软件的新版本，交付给质量团队或用户，以供评审
+
+**CD**：持续部署，持续交付的下一步，指的是代码通过评审之后，自动部署到生产环境，以实现应用的快速更新。
+
+### Travis CI
+
+每次push之后，Travis CI会自动拉取代码，安装依赖，运行测试
+```ts
+//.travis.yml
+language: node_js
+node_js:
+  - node
+```
+travis更多配置
+```ts
+language: node_js
+node_js:
+  - node
+deploy: //部署到npm
+  provider: npm
+  email: "YOUR_EMAIL"
+  api_key: "YOUR_Auth_TOKEN" //npm Access Token
+  on:
+    tags: true //只有打了tag才会发布
+  skip_cleanup: true //保留dist目录
+```
+对私密信息加密，travis提供加密
+```ts
+gem install travis
+```
+```ts
+travis login --pro
+```
+```ts
+travis encrypt "YOUR_SECRET_INFO" --add deploy.api_key //在项目根目录下运行
+```
+```ts
+git commit -m "add travis config"
+git tag v1.0.1 -m "release v1.0.1"
+git push --tags
+```

@@ -2605,7 +2605,7 @@ async renderToPageData(query:{id:string,uuid:string}){
 
 ### Egg SSR渲染组件库样式问题
 
-1. 直接拷贝样式文件到public目录，然后在模板中引用
+1. 直接拷贝样式文件到public目录，然后在模板中引用  
 缺点：
   1. 样组件库升级，样式有更新的时候，需要重新拷贝，非常繁琐
   2. 当有更多JS功能时候，会出现很多限制；
@@ -2697,7 +2697,7 @@ module.exports = {
 ```
 :::
 
-### Egg Webpac结合上传OSS
+### Egg Webpack结合上传OSS
 
 将webpack打包后的文件上传到OSS，实现静态资源托管
 ```ts
@@ -2753,7 +2753,284 @@ module.exports = (env) =>{
 "upload": "node webpack/uploadToOSS.js"
 ```
 
-### 
+### Egg RBAC权限控制简单使用
+
+```ts
+npm i casl/ability 
+```
+```ts
+import { AbilityBuilder,Ability } from '@casl/ability';
+import { permittedFieldsOf } from '@casl/ability/extra';
+import { pick } from 'lodash';
+class Work{
+  constructor(attrs){
+    Object.assign(this,attrs)
+  }
+}
+interface User{
+  id:number
+  role:'admin' | 'vip' | 'normal'
+}
+const adminUser:User = {
+  id:1,
+  role:'admin'
+}
+const vipUser:User = {
+  id:2,
+  role:'vip'
+}
+const normalUser:User = {
+  id:3,
+  role:'normal'
+}
+const vipWork = new Work({
+  id:1,
+  author:2,
+  content:"hello world",
+  title:"hello",
+  uuid:123456
+  isTemplate:true
+})
+const normalWork = new Work({
+  id:2,
+  author:3,
+  content:'test',
+  title:'test',
+  uuid:654321,
+  isTemplate:false
+})
+
+const WORK_FIELDS = ['id','title','content','uuid','isTemplate'] //所有可修改的字段
+const options = { fieldsFrom:rule => rule.fields || WORK_FIELDS }
+
+function defineRules(user:User){
+  const { can,cannot,build } = new AbilityBuilder(Ability);
+  if(user.role === 'admin'){
+    can('manage','all')
+  }else if(user.role === 'vip'){
+    can('download','Work')
+    can('delete','Work',{author:user.id})
+    can('update','Work',[title,content,uuid],{author:user.id})
+  }else if(user.role === 'normal'){
+    can('read','Work')
+    can('delete','Work',{author:user.id})
+    can('update','Work',[title,content],{author:user.id})
+  }
+  return build()
+}
+const rules = defineRules(adminUser)
+console.log(rules.can('read','Work'));
+console.log(rules.can('delete','Work'));
+console.log(rules.can('update','Work'));
+
+const rules2 = defineRules(vipUser)
+console.log(rules2.can('read','Work'));
+console.log(rules2.can('delete',vipWork)); //true
+console.log(rules2.can('update',normalWork)); //false
+console.log(rules2.can('update',normalWork,"title")); //true
+console.log(rules2.can('update',normalWork,"uuid")); //true
+
+//获取用户可修改的对应字段
+const fileds = permittedFieldsOf(rules2,'update',vipWork,options) //['title', 'content', 'uuid']
+const fields2 = permittedFieldsOf(rules2,'update',normalWork,options) //['title', 'content']
+
+//normal user request body
+const reqBody = {
+  title:'new title',
+  content:'new content', 
+  uuid:123456 //只有vip用户可以修改uuid
+}
+const rawWork = pick(reqBody,fileds) //只保留可修改的字段
+```
+
+
+### Egg 结合CASL实现RBAC权限控制
+
+app/decorator/checkPermission.ts
+```ts
+import { GlobalErrorTypes } from '../error/index';
+import { Controller } from 'egg';
+import defineRules from '..//roles/roles'
+import { subject } from '@casl/ability';
+import { permittedFieldsOf } from '@casl/ability/extra';
+import { difference,assign } from 'lodash/fp'
+
+//普通casl方法映射
+const caslMethodMapping:Record<string, string> = {
+  GET:"read",
+  POST:"create",
+  PATCH:"update",
+  DELETE:"delete"
+}
+
+interface IOptions {
+  action?:string //自定义action
+  key?:string //查找数据时使用的key，默认为id
+  value?:{type:'params' | 'body',valueKey:string} //查询数据时value的来源，默认为params
+  // { "channels.id":ctx.request.body.workId }
+}
+
+interface ModelMapping {
+  mongoose:string;
+  casl:string
+} 
+
+/**
+ * @param modelName 模型名称 
+ * @param errorType 错误类型
+ * @param options 选项
+ * @returns function 装饰器
+ */
+const fieldsOptions = { fieldsFrom: rule => rule.fields || [] }
+const defaultOptions = { key: 'id', value: { type: 'params', valueKey: 'id' } }
+export default function checkPermission(
+  modelName: string | ModelMapping,
+  errorType: GlobalErrorTypes,
+  options?: IOptions
+) {
+  return function (prototype, key: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+    descriptor.value = async function (...args: any[]) {
+      const that = this as Controller;
+      //@ts-ignore
+      const { ctx } = that;
+      const { method } = ctx.request;
+      const searchOptions = assign(defaultOptions,options || {})
+      const { key, value } = searchOptions
+      const {type,valueKey } = value
+      const source = type === 'params'? ctx.params : ctx.request.body
+      const query = {
+        [key]: source[valueKey]
+      }//获取查询query格式参数
+      const mongooseModelName = typeof modelName === 'string'? modelName : modelName.mongoose
+      const caslModelName = typeof modelName === 'string'? modelName : modelName.casl
+      let permission = false;
+      let keyPermission = true;
+      const action = (options && options.action)?options.action:caslMethodMapping[method];//自定义action
+      if(!ctx.state && !ctx.state.user){
+        return ctx.helper.error({ ctx, errType:errorType });
+      }
+      const ability = defineRules(ctx.state.user)
+      const rule = ability.relevantRuleFor(action,caslModelName)//返回一个定义在roles中与给定操作和模型名称相关的权限规则      
+      if(rule && rule.conditions){
+        //如果rule中有受限查寻条件
+        const certianRecord = await ctx.model[mongooseModelName].findOne(query).lean()
+        permission = ability.can(action,subject(caslModelName,certianRecord))
+      }else {
+        permission = ability.can(action,caslModelName)
+      }      
+      //判断rule中是否有受限字段
+      if(rule && rule.fields){
+        const fields = permittedFieldsOf(ability,action,caslModelName,fieldsOptions)
+        if(fields.length > 0){
+          //1. 使用pick过滤没有权限的字段
+          //2. 将请求字段和允许字段做比较
+          const payLoadKeys = Object.keys(ctx.request.body)
+          const diffKeys = difference(payLoadKeys,fields)  
+          keyPermission = diffKeys.length === 0
+        }
+      }
+      if (!permission || !keyPermission) {
+        return ctx.helper.error({ ctx, errType:errorType });
+      }
+      await originalMethod.apply(this, args);
+    };
+  };
+}
+```
+```ts
+//roles/roles.ts
+import { createMongoAbility,AbilityBuilder } from '@casl/ability'
+import { Document } from 'mongoose'
+import { UserProps } from '../model/user'
+
+export default function defineRules(user: UserProps & Document<any,any,UserProps>) {
+    const { can,build } = new AbilityBuilder(createMongoAbility)
+    if(user){
+        if(user.role === 'admin'){
+            can('manage', 'all')
+        }else {
+            can('read','User',{_id:user._id})
+            can('update','User',['nickName','picture'],{_id:user._id})
+
+            can('create','Work',['title','desc','content','coverImg'])
+            can('read','Work',{user:user._id})
+            can('update','Work',['title','desc','content','coverImg'],{user:user._id})
+            can('delete','Work',{user:user._id})
+            can('publish','Work',{user:user._id})
+
+            can('create','Channels',['name','workId'],{user:user._id})
+            can('read','Channels',{user:user._id})
+            can('update','Channels',['name'],{user:user._id})
+            can('delete','Channels',{user:user._id})
+        }
+    }
+    return build()  
+}
+```
+```ts
+//使用
+@checkPermission({casl:'Channels',mongoose:'Work'},'workNoPermission',{value:{type:"body",valueKey:'workId'}})
+```
+
+### Egg 开发和部署模式
+
+本地开发：
+1. 使用了egg-bin启动项目，提供开发、调试、测试，监控文件修改等功能
+2. 采用配置config.default.ts，启动命令为egg-bin dev
+
+生产环境运行：
+1. PM2-process manager，提供进程管理、负载均衡、日志管理等功能
+2. cluster模式运行
+3. 自动重启auto-reload
+4. 热替换hot-reload
+5. 性能监控，Monitoring
+
+Egg生产环境：
+1. 内置了egg-scripts,egg-cluster
+2. 配置文件为config.prod.ts + config.default.ts
+3. 需要先进行编译，然后启动进程
+
+```ts
+npm run tsc
+npm run start
+npm run stop
+```
+```ts
+"scripts": {
+  "start": "egg-scripts start --daemon --title=egg-server-egg_backend", // [!code ++]
+  "stop": "egg-scripts stop --title=egg-server-egg_backend", // [!code ++]
+  "dev": "egg-bin dev", // [!code ++]
+  "test:local": "egg-bin test -p",
+  "test": "npm run lint -- --fix && npm run test:local",
+  "cov": "egg-bin cov -p",
+  "ci": "npm run lint && npm run cov && npm run tsc && npm run clean",
+  "lint": "eslint . --ext .ts --cache",
+  "tsc": "tsc", // [!code ++]
+  "clean": "tsc -b --clean",
+  "build:template:dev": "npx webpack --config webpack/webpack.config.js",
+  "build:template:pro": "npx webpack --config webpack/webpack.config.js --env production && npm run upload",
+  "upload": "node webpack/uploadToOSS.js"
+},
+```
+
+### Egg 三种不同进程
+
+1. Master进程：1个，负责启动应用，监控应用进程，管理应用进程，进程间消息转发等，稳定性非常高
+2. Agent进程：1个，有一些特殊性质的工作，不能多个worker一起合作完成，容易造成混乱，egg.js提供了一个新的agent_worker进程，专门处理一些特殊的任务，稳定性高
+3. Worker进程：cpu核数，负责处理HTTP请求，执行业务代码，稳定性一般；
+   
+4. 使用egg-scripts启动master process
+5. 使用egg-cluster启动和CPU核数相等的app worker process
+6. 使用egg-cluster启动一个独特的agent_worker process
+
+进程守护：
+1. 当代码抛出错误但是并没有被捕获，worker使用process.on('uncaughtException',Handler)捕获对应的错误,这时候进程会与Master进程disconnect，Master进程会重新启动fork一个worker进程。
+2. 系统异常，当一个进程出现异常导致crash或者被系统杀死时，Master会立即fork一个新的worker进程
+
+
+
+
 
 
 
@@ -2847,6 +3124,62 @@ IPv6:[::1]
 解决办法：
 ```ts
 const uri = 'mongodb://127.0.0.1:27017/lego';
+```
+
+## Egg 错误未解决
+
+### npm run start启动报错：
+Egg 在tsc编译后，使用npm run start 启动时报错：
+::: danger
+node:events:497
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: spawn node ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:286:19)
+    at onErrorNT (node:internal/child_process:484:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)
+
+Emitted 'error' event on ChildProcess instance at:  
+    at ChildProcess._handle.onexit (node:internal/child_process:292:12)  
+    at onErrorNT (node:internal/child_process:484:16)  
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {  
+  errno: -4058, 
+  code: 'ENOENT',  
+  syscall: 'spawn node',  
+  path: 'node',  
+  spawnargs: [  
+    '--no-deprecation',  
+    '--trace-warnings',  
+    '--require',  
+    'F:\\test_backend\\node_modules\\source-map-support\\register.js',  
+    'F:\\test_backend\\node_modules\\egg-scripts\\lib\\start-cluster',  
+    '{"title":"egg-server-egg_backend","baseDir":"F:\\\\test_backend",   "framework":"F:\\\\test_backend\\\\node_modules\\\\egg"}',  
+    '--title=egg-server-egg_backend'  
+  ]  
+}  
+:::
+找不到node，但是node已经配置了环境变量,node及node -v正常使用，留待
+
+
+### npm run start 启动报错：
+
+上步没解决，改了下启动命令
+```ts
+G:\mysoft\Node.js\node.exe egg-scripts start --daemon --title=egg-server-egg_backend --ignore-stderr
+```
+::: danger
+Error: Cannot find module 'F:\test_backend\egg-scripts'  
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1225:15)  
+    at Module._load (node:internal/modules/cjs/loader:1051:27)  
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:174:12)  
+    at node:internal/main/run_main_module:28:49 {  
+  code: 'MODULE_NOT_FOUND',  
+  requireStack: []  
+:::
+又改了下，启动不报错了，但是启动后，没有效果,访问不了,留待
+```ts
+G:\mysoft\Node.js\node.exe F:\test_backend\node_modules\egg-scripts start --daemon --title=egg-server-egg_backend --ignore-stderr
 ```
 
 

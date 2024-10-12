@@ -1009,4 +1009,27 @@ async function startServer() {
 startServer();
 ```
 
-###
+## MongoDB 报错
+
+
+### 无法使用mongosh命令
+::: danger 
+无法使用mongo命令
+:::
+解决：
+1. 下载mongoshell，[MongoDBSell](https://www.mongodb.com/try/download/shell)
+2. 将解压后的bin文件夹里面的内容添加到MongoDB的bin目录下
+3. 将该文件配置到系统变量的path变量中,目录级别到bin目录即可，不用具体到.exe
+4. 测试使用mongosh命令是否可用
+![success](/mongosh.png)
+
+### mongo 1067错误
+
+```ts
+net start MongoDB
+报错:1067
+```
+::: tip
+多方尝试均无效，重装MongoDB后解决。
+:::
+

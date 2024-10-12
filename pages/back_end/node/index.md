@@ -161,6 +161,150 @@ SSR 应用：ToC 密集型应用，新闻网站，博客网站，电子商务等
 
 ## Node.js 模块系统
 
+### Cluster模块
+
+JS代码是运行在单线程上，如果Node.js来做Web Server，就无法享受到多核运算  
+Cluster 模块可以用来创建子进程，可以用来实现负载均衡、提高服务器的并发处理能力。  
+每个子进程里跑的都是同一份源代码，可以同时监听一个端口
+
+```ts
+import http from "http";
+import cluster from "cluster";
+import { cpus } from "os";
+import process from "process";
+
+if(cluster.isPrimary){
+  //isPrimary 表示当前进程是主进程
+  const cpuLength = cpus();
+  for(let i = 0; i < cpuLength.length; i++){
+    cluster.fork();//创建子进程
+  }
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`worker ${worker.process.pid} died`);
+  }
+}else {
+  //isPrimary 为 false 表示当前进程是子进程
+  http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Hello World\n");
+  }).listen(8080, () => {
+    console.log(`worker ${process.pid} started`);
+  })
+}
+```
+
+### Cluster模块压力测试
+
+```ts
+npm i loadtest --save-dev
+```
+```ts
+import http from "http";
+import cluster from "cluster";
+import { cpus } from "os";
+import process from "process";
+import express from "express";
+
+function startCluster(){
+    const app = express();
+    app.get('/noClusterTest', (req, res) => {
+    console.time('noClusterTest');
+    const baseNumber = 7;
+    let result = 0;
+    for(let i = Math.pow(baseNumber,7);i>0;i--){
+        result += Math.tan(i) * Math.atan(i)
+    }
+    console.timeEnd('noClusterTest');
+    res.status(200).json({
+        result: result
+    })
+})
+app.listen(3000,()=>{
+    console.log('Server is running on port 3000')
+})
+}
+if(cluster.isPrimary){
+  //isPrimary 表示当前进程是主进程
+  const cpuLength = cpus();
+  for(let i = 0; i < cpuLength.length; i++){
+    cluster.fork();//创建子进程
+  }
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`worker ${worker.process.pid} died`);
+  })
+}else {
+    startCluster();
+}
+```
+```ts
+//package.json
+"cluster":"npx loadtest -n 400 -c 30  http://localhost:3000/noClusterTest"
+npx loadtest -n 总请求数 -c 并发数 --rps 平均每秒请求数  地址
+```
+```ts
+      单进程                                   多进程
+Completed requests:  400               Completed requests:  400
+Total errors:        118               Total errors:        86
+Total time:          4.519 s     ==>   Total time:          1.172 s
+Mean latency:        1599.7 ms         Mean latency:        352.2 ms
+Effective rps:       89                Effective rps:       341                         
+```
+
+### Cluster进程通信
+
+```ts
+import http from "http";
+import cluster from "cluster";
+import { cpus } from "os";
+import process from "process";
+import express from "express";
+
+function startCluster(){
+    const app = express();
+    app.get('/noClusterTest', (req, res) => {
+    console.time('noClusterTest');
+    const baseNumber = 7;
+    let result = 0;
+    for(let i = Math.pow(baseNumber,7);i>0;i--){
+        result += Math.tan(i) * Math.atan(i)
+    }
+    console.timeEnd('noClusterTest');
+    res.status(200).json({
+        result: result
+    })
+    process.send({cmd:"noClusterTest"}) // [!code ++]
+})
+app.listen(3000,()=>{
+    console.log('Server is running on port 3000')
+})
+}
+if(cluster.isPrimary){
+  //isPrimary 表示当前进程是主进程
+  const cpuLength = cpus();
+  let num = 0;
+  for(let i = 0; i < cpuLength.length; i++){
+    cluster.fork();//创建子进程
+  }
+  cluster.on("exit", (worker, code, signal) => {
+    console.log(`worker ${worker.process.pid} died`);
+  })
+  //监听子进程的消息 // [!code ++]
+  for(let id in cluster.workers){
+    cluster.workers[id].on("message", (msg) => {        
+        if(msg.cmd === "noClusterTest"){
+            num++;
+        }
+    })
+  }
+  setInterval(() => {
+    console.log('num', num);
+  },1500)
+}else {
+    startCluster();
+}
+```
+
+
 ### path 模块
 
 path 模块在不同的操作系统上是有差异的,posix：表示可移植操作系统接口，相当于一套标准，比如把 Linux 系统的代码移植到 Windows 上，就需要用到 posix。Windows 并没有完全遵循 posix 标准，比如 windows 在设计采用了不同的 posix 的路径表示方法，windows 中使用反斜杠 \ 作为路径分隔符，posix 系统使用的正斜杠 /

@@ -215,4 +215,281 @@ Sass和Scss的区别：Sass是缩进语法，对于写惯css前端的开发者�
 }
 ```
 
+## CSS工程化
+
+CSS代码实现更好地组织和拆分，提高代码可维护性，降低代码重复率，提高代码复用率。常用的CSS工程化工具有：
+1. 预处理器，Less、Scss
+2. 后处理器，PostCSS
+3. 打包，Webpack-Loader
+
+## 判断元素达到可视区域
+
+img.offsetTop < window.innerHeight + document.body.scrollTop
+
+## z-index属性在什么情况下失效
+
+1. 父元素position为relative，子元素的z-index无效
+2. 元素在设置z-index的同时还设置了float
+
+## CSS布局单位
+
+1. px，像素，绝对单位，不受屏幕分辨率影响，px是CSS的基本单位，用于控制元素的大小
+2. %，当浏览器的高度或宽度发生变化，元素的大小会自动调整，相对于父元素的宽度或高度
+3. em和rem，em相对于父元素字体大小，rem相对于根元素字体大小
+4. vw/vh，视口宽度/高度的百分比，视口指浏览器窗口的大小，vw/vh是相对于视口的宽度/高度，1vw等于视口宽度的1%，1vh等于视口高度的1%
+
+## 常用布局方法
+
+1. 浮动，兼容性好，注意浮动会脱离文档流，要清除浮动;
+2. 绝对定位，快捷，子元素也脱离文档流
+3. flex布局
+4. grid布局
+5. 栅格布局，可以用于多端适配
+
+## 实现两栏布局
+
+左边一栏宽度固定，右边一栏宽度自适应  
+```html
+<style>
+使用float // [!code ++] 
+.outer {
+    height: 100px;
+    margin: 0;
+    padding:0
+}
+.left {
+    width: 200px;
+    height: 100%;
+    float: left;
+    background-color: red;
+}
+.right {
+    margin-left: 200px;
+    height: 100%;
+    width: auto;
+    background-color: cadetblue;
+}
+
+</style>
+<body>
+    <div class="outer">
+        <div class="left"></div>
+        <div class="right"></div>
+    </div>
+</body>
+</html>
+```
+```html
+<style>
+使用flex // [!code ++] 
+.outer {
+    display: flex;
+    height: 100px;
+}
+.left {
+    width: 200px;
+    height: 100%;
+    background-color: pink;
+}
+.right {
+    flex: 1;
+    height: 100%;
+    background-color: lightgreen;
+}
+</style>
+```
+
+## 实现三栏布局
+
+左右两栏固定，中间宽度自适应
+```html
+使用float // [!code ++] 
+<style>
+    .outer {
+        height: 200px;
+    }
+
+    .left {
+        float: left;
+        width: 200px;
+        height: 100%;
+        background-color: blue;
+    }
+    .right {
+        float: right;
+        width: 200px;
+        height: 100%;
+        background-color: red;
+    }
+    .middle {
+        height: 100%;
+        margin-left: 200px;
+        margin-right: 200px;
+        background-color: green;
+    }
+</style>
+<body>
+    <div class="outer">
+        <div class="left"></div>
+        <div class="right"></div>
+        <div class="middle"></div>
+    </div>
+</body>
+```
+```html
+使用flex // [!code ++] 
+<style>
+    .outer {
+        height: 200px;
+        display: flex;
+    }
+    .left {
+        width: 200px;
+        height: 100%;
+        background-color: red;
+    }
+    .right {
+        width: 200px;
+        height: 100%;
+        background-color: blue;
+    }
+    .middle {
+        flex: 1;
+        height: 100%;
+        background-color: green;
+    }
+</style>
+<body>
+    <div class="outer">
+        <div class="left"></div>
+        <div class="middle"></div>
+        <div class="right"></div>
+    </div>
+</body>
+```
+```html
+使用定位 // [!code ++] 
+<style>
+    .outer {
+        height: 200px;
+        position: relative;
+    }
+    .left {
+        width: 200px;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        background-color: red;
+    }
+    .right {
+        width: 200px;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        right: 0;
+        background-color: blue;
+    }
+    .middle {
+        height: 100%;
+        margin-left: 200px;
+        margin-right: 200px;
+        background-color: green;
+    }
+</style>
+<body>
+    <div class="outer">
+        <div class="left"></div>
+        <div class="middle"></div>
+        <div class="right"></div>
+    </div>
+</body>
+```
+
+## 实现双飞翼(圣杯)布局
+
+## 实现垂直居中
+
+```html
+使用定位+transform // [!code ++] 
+  <style>
+    .outer {
+      width: 200px;
+      height: 200px;
+      background-color: blue;
+      position: relative;
+    }
+
+    .inner {
+        width: 50px;
+        height: 50px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+        background-color: red;
+    }
+  </style>
+  <body>
+    <div class="outer">
+        <div class="inner"></div>
+    </div>
+  </body>
+```
+```ts
+使用flex // [!code ++] 
+  <style>
+    .outer {
+      width: 200px;
+      height: 200px;
+      background-color: blue;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .inner {
+        width: 50px;
+        height: 50px;
+        background-color: red;
+    }
+  </style>
+  <body>
+    <div class="outer">
+        <div class="inner"></div>
+    </div>
+  </body>
+```
+```html
+使用绝对定位 // [!code ++] 
+  <style>
+    .outer {
+      width: 200px;
+      height: 200px;
+      background-color: blue;
+      position: relative;
+    }
+
+    .inner {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        margin: auto; 
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: red;
+    }
+  </style>
+  <body>
+    <div class="outer">
+        <div class="inner"></div>
+    </div>
+  </body>
+```
+
+## Flex布局
+
+flex布局设置以后，子元素的float、clear、vertical-align属性将失效。采用flex布局的元素，称为flex容器，子元素称为flex项目。容器默认存在两根轴：水平的主轴（main axis）和垂直的交叉轴（cross axis）。
 

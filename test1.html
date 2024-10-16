@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      // let obj = {
+      //   name: 'zhangsan',
+      // };
+
+      // function fn(obj) {
+      //   console.log(obj.name);
+      // }
+      // fn(obj);
+      // fn.call(this, { name: 'lisi' });
+      // Function.prototype.myCall = function (context) {
+      //   let args = [...arguments].slice(1);
+      //   console.log('context', context); //{name:"zhaoliu"}
+      //   context = context || window;
+      //   console.log('this', this); //fn
+      //   context.fn = this;
+      //   console.log('context.fn', context); //{name:"zhaoliu",fn:f}
+      //   let result = context.fn(...args);
+      //   delete context.fn;
+      //   return result;
+      // };
+      // fn.myCall({ name: 'zhaoliu' }, { name: 'wangwu' });
+
+      // Function.prototype.myApply = function (context) {
+      //   context = context || window;
+      //   context.fn = this;
+      //   let result;
+      //   let args = Array(arguments)[0][1];
+      //   // let args = [...arguments][1]
+      //   context.fn(...args);
+      //   delete context.fn;
+      //   return result;
+      // };
+      // fn.myApply(this, [{ name: 'zhaoliu' }]);
+
+      // Function.prototype.myBind = function (context) {
+      //   context = context || window;
+      //   let args = [...arguments].slice(1);
+      //   let fn = this;
+      //   return function Fn() {
+      //     return fn.apply(
+      //       this instanceof Fn ? this : context,
+      //       args.concat([...arguments])
+      //     );
+      //   };
+      // };
+      // fn.bind(this, { name: 'zhaoliu' })();
+
+      // function Person(name) {
+      //   this.name = name;
+
+      //   // 在构造函数中绑定方法的上下文
+      //   this.greet = this.greet.myBind(this);
+      // }
+
+      // // 在原型上定义一个方法
+      // Person.prototype.greet = function () {
+      //   console.log(`Hello, my name is ${this.name}`);
+      // };
+
+      // const person = new Person('zhangsan');
+
+      // // 调用方法
+      // person.greet(); // 输出：Hello, my name is zhangsan
+
+      // // 将方法赋值给另一个变量
+      // const greetingFunction = person.greet;
+      // greetingFunction(); // 输出：Hello, my name is zhangsan
+
+      //   console.log('time start');
+      //   let p = new Promise((resolve, reject) => {
+      //     console.log('promise start');
+      //     resolve('test')
+      //     console.log('promise end');
+      //   })
+      //   p.then((data) => {
+      //     console.log('promise then start'+`${data}`);
+      //   })
+      //   setTimeout(() => {
+      //     console.log('setTimeout start');
+      //   })
+      //   console.log('time end');
+
+      // function f2() {
+      //   return 1
+      // }
+      // const f2 = async () =>{}
+      // console.log(f1() instanceof Promise); // true
+      // console.log(f1()); //Promise {<fulfilled>: 1}
+      // f1().then((res) => {
+      //   console.log(res); // 1
+      // });
+      //   async function f2() {
+      //     console.log('f2 start');
+      //     let p = await new Promise((resolve, reject) => {
+      //       console.log('await promise start');
+      //       resolve('test');
+      //       console.log('await promise end');
+      //     })
+      //     .then((data) => {
+      //       console.log('await promise then start ' + `${data}`);
+      //     })
+      //     .then(()=>{
+      //         console.log('await promise then');
+      //     })
+      //     console.log('f2 end');
+      //   }
+      //   f2();
+
+      function curry(fn) {
+        if (fn.length === 0) {
+          return fn;
+        }
+        function curried(depth, args) {
+          return function (newArgument) {
+            console.log('newArgument', newArgument);
+            if (depth - 1 === 0) {
+              return fn(...args, newArgument);
+            }
+            return curried(depth - 1, [...args, newArgument]);
+          };
+        }
+        return curried(fn.length, []);
+      }
+      function add(a, b) {
+        return a + b;
+      }
+      const curriedAdd = curry(add);
+      const addFive = curriedAdd(5);
+      debugger;
+      let result = [0, 1, 2, 3, 4, 5].map(addFive);
+      console.log(result);
+    </script>
+  </body>
+</html>

@@ -215,6 +215,114 @@ Sass和Scss的区别：Sass是缩进语法，对于写惯css前端的开发者�
 }
 ```
 
+## 响应式
+一个网站可以兼容多个终端，而不是为每一个终端做一个特定的版本。
+基本原理是通过媒体查询检测不同的设备屏幕尺寸做处理，页面头部必须有meta声明的viewport标签
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0" maximum-scale=1.0, user-scalable=no />
+```
+
+## Flex布局
+
+flex布局设置以后，子元素的float、clear、vertical-align属性将失效。采用flex布局的元素，称为flex容器，子元素称为flex项目。容器默认存在两根轴：水平的主轴（main axis）和垂直的交叉轴（cross axis）。
+
+## 浮动
+
+1. 浮动元素脱离文档流，不占据空间，或引起高度塌陷问题；
+2. 浮动元素碰到包含它的边框或者其他浮动元素的边框停留
+浮动问题：
+1. 高度塌陷：父元素高度塌陷，子元素无法撑开高度，影响布局
+2. 非浮动元素会紧跟在浮动元素后面，影响布局
+清除浮动：
+1. 给父级定义足够高的height
+2. 最后一个浮动元素后加一个空div，并设置clear:both;
+3. 包含浮动的父级标签添加overflow:hidden或overflow:auto;
+4. 使用:after伪元素清除浮动
+
+```css
+floatEle:after{
+    content: "";
+    display: block;
+    clear: both;
+    height: 0;
+}
+```
+
+## BFC
+
+BFC是块级格式化上下文，是一个独立的环境，容器内的布局不受外部影响
+
+创建BFC：
+1. body
+2. float不为none
+3. position为absolute或fixed
+4. display为inline-block、table-cell、table-caption、flex等
+5. overflow不为visible
+
+BFC的特点：
+1. 垂直方向上，自上而下排列，与文档流一致
+2. BFC中上下相岭的容器的margin会重叠
+3. 计算BFC的高度时，浮动元素也参与计算
+4. BFC是独立的容器，内部不影响外部
+5. 每个元素的左margin值和容器的左border相接触
+6. BFC不与浮动元素重叠
+
+BFC的作用：  
+1. 解决margin重叠问题；
+2. 解决高度塌陷问题，子元素设置float后，父元素高度塌陷，可以把父元素变为一个BFC，如设置overflow:hidden;
+3. 创建自适应两栏布局，左侧设置float：left，右侧设置overflow：hidden;这样右侧不会与左侧重叠，两栏自适应；
+
+## margin重叠问题
+
+两个块级元素的上外边距和下外边距在垂直方向可能会折叠,注意浮动元素和绝对定位元素的margin不会折叠  
+兄弟间的折叠：
+1. 底部元素display:inline-block;
+2. 底部元素设置float
+3. 底部元素position:absolute;
+
+父子间折叠：
+1. 父元素overflow:hidden;
+2. 父元素设置border:1px solid transparent;
+3. 子元素display:inline-block;
+4. 子元素加入浮动或定位
+
+## 元素层叠顺序
+
+父辈有定位且配置了z-index,优先按照父辈的定位的z-index进行层级比较
+1. 背景图和边框
+2. 负的z-index
+3. 块级盒，文档流内非定位非行内级后代元素
+4. 浮动盒
+5. 行内盒
+6. z-index：0
+7. z-index：正值
+
+
+## Position的值
+
+1. static，默认值，没有定位，元素出现在正常的流中（忽略top、bottom、left、right的设置）
+2. absolute，相对于最近的已定位祖先元素进行定位，如果元素没有已定位的祖先元素，则相对于body进行定位
+3. relative,相对于其正常位置进行定位，不会脱离文档流，设置top、bottom、left、right，元素会按照设置的位置进行移动
+4. fixed，相对于浏览器窗口进行定位，不随页面滚动而滚动，脱离文档流，设置top、bottom、left、right，元素会按照设置的位置进行移动
+5. sticky，设置top、bottom、left、right四个阈值之一，sticky才会生效，当父元素滚动时，子元素也会跟着一起滚动，为relative,超出阈值后，会变成fixed，固定定位
+
+## absoulte与fixed的区别
+
+共同点：
+1. 改变行内元素的呈现方式，将display置为inline-block
+2. 脱离文档流
+3. 覆盖非定位元素
+不同点：
+1. absolute是相对于最近的已定位祖先元素进行定位，fixed是相对于浏览器窗口进行定位
+2. absolute会跟着父元素进行移动，fixed固定在页面具体位置
+
+## display、float、position的优先级关系
+
+1. 首先判断display值是否为none，为none，float、position属性不起作用
+2. 其次position是否为absolute或fixed，是则float失效,并且设置display值为block或table
+3. 如果position不为absolute或fixed，则判断float是否none，不是则display按上面规则转换
+4. 如果float为none，判断元素是否为根元素，如果是根元素则display值按照上面规则转换，如果不是，保持指定属性
+
 ## CSS工程化
 
 CSS代码实现更好地组织和拆分，提高代码可维护性，降低代码重复率，提高代码复用率。常用的CSS工程化工具有：
@@ -245,6 +353,261 @@ img.offsetTop < window.innerHeight + document.body.scrollTop
 3. flex布局
 4. grid布局
 5. 栅格布局，可以用于多端适配
+
+## css解决浏览器兼容
+
+1. webkit前缀，-webkit-，针对webkit内核
+2. moz前缀，-moz-，针对火狐内核
+3. ms前缀，-ms-，针对IE内核
+4. o前缀，-o-，针对opera内核
+
+## margin-top百分比
+
+margin-top：50%,表示距离父元素的顶部距离为父元素高度的50%，也就是说，父元素的高度变化，子元素的距离也会变化。
+
+## Less特性
+
+1. 变量
+```less
+@color: #333;
+.box {
+    color: @color;
+}
+```
+2. 嵌套
+```less
+.box {
+    color: #333;
+    &-active {
+        color: @color;
+    }
+}
+```
+3. 运算
+```less
+@width: 100px;
+@height: 100px;
+.box {
+    width: (@width + @height);
+}
+```
+4. 条件语句
+```less
+@width: 100px;
+@height: 100px;
+.box {
+    width: (@width > @height)? @width : @height;
+}
+```
+5. 字符串插值
+```less
+@url:"/images/"
+div {
+    background-image: url("@{url}bg.png");
+}
+```
+6. 媒体查询定义变量
+```less
+@mediaQuery: ~"(max-wdith: 768px)";
+@media screen and @mediaQuery {
+    div {
+        width:200px
+    }
+}
+```
+
+## Input Type值
+
+1. text，单行文本输入框
+2. password，密码输入框，输入内容会被掩盖
+3. email，邮箱输入框，输入内容必须符合邮箱格式
+4. number，数字输入框，输入内容必须为数字
+5. radio，单选框
+6. checkbox，多选框
+7. submit，提交按钮
+8. reset，重置按钮
+9. button，自定义按钮
+10. file，文件上传按钮
+11. hidden，隐藏输入字段
+12. image，图像上传按钮
+13. search，搜索框，输入内容会出现搜索按钮
+14. tel，电话号码输入框，输入内容必须符合电话号码格式
+15. url，网址输入框，输入内容必须符合网址格式
+16. date，日期输入框，输入内容必须符合日期格式
+17. time，时间输入框，输入内容必须符合时间格式
+18. datetime，日期时间输入框，输入内容必须符合日期时间格式
+19. month，月份输入框，输入内容必须符合月份格式
+20. week，周输入框，输入内容必须符合周格式
+21. range，范围输入框，输入内容必须在范围内
+22. color，颜色输入框，输入内容必须符合颜色格式
+
+## rem如何根据HTML字号进行适配
+
+通用：
+1. 使用媒体查询，根据不同的设备按比例设置html文字大小
+2. 元素rem = 元素px / (屏幕宽度/划分的份数),屏幕宽度/划分的份数就是html的font-size值，比如750尺寸/15份 = 50px，假如元素为100px，那么rem = 100px / 50px = 2
+3. 有一定适用性，换算较为简单，不过有兼容性问题，对不同手机的适配不是非常精准，需要配置多个媒体查询，如果某款手机不在设置范围之内，会出现无法适配
+
+网易：
+1. 拿到设计稿/100，得到宽度rem值
+2. 动态设置font-size
+```js
+document.documentElement.style.fontSize = document.documentElement.clientWidth / x(x为rem值) + 'px';
+```
+3. 可以动态配置font-size，基本无兼容性问题，不过无viewport缩放，且针对于iPhone的Retina屏幕无适配
+
+手淘方案：
+1. 拿到设计稿/10，得到font-size基准值
+2. 引入flexible.js
+3. 设计稿px/font-size基准值即可换算rem
+4. 可以动态配置font-size和dpr做适配，不过单位计算较为复杂，需要注意
+
+## Bootstrap栅格系统工作原理
+
+1. 行(row)必须包含在container(固定宽度)中,以便为其赋予合适的排列(alignment)和(padding)
+2. 通过row在水平方向创建一组列column
+3. 内容放置在column内，并且只有列可以作为行row的直接子元素
+4. 通过为列设置padding属性，创建列与列之间的间隔gutter，通过为row元素设置负值margin可以抵消padding
+5. 列通过指定1-12来表示跨越范围，如果一行的列>12，多余的列所在元素将作为一个整体另起一列
+
+## CSS支持小于12px的文字
+```css
+span {
+    font-size: 12px;
+    -webkit-transform: scale(0.75);
+}
+```
+
+## 浏览器是如何解析CSS选择器的
+
+css选择器解析是从右向左匹配的，假设有：
+```css
+.box h3 span {}
+```
+css会先匹配span，对于每一个span，向上遍历找到h3，再向上遍历找到box，最后找到html结束  
+如果中途找不到h3或box，可以及时停止匹配，有效减少回溯次数提升性能
+
+## less和scss的深度选择器
+
+当style标签有scope属性时，样式只会限定作用于当前组件，当除去后，样式会应用到全局，造成全局样式污染，因此less和scss都提供了深度选择器，可以限定作用域，避免污染全局样式。
+
+```less
+ /deep/ .xxx {
+
+}
+>>> .xxx {
+
+}
+:deep(.xxx){
+
+}
+::v-deep .xxx {
+    // 废弃
+}
+
+```
+
+
+## css动画
+
+```html
+<style>
+@keyframes move {
+    0% {
+    transform: translate(0, 0);
+    }
+    50% {
+    transform: translateX(100px)
+    }
+    100% {
+    transform: translate(0, 0);
+    }
+}
+.outer {
+    width: 20px;
+    height: 20px;
+    background-color: red;
+    border-radius: 50%;
+    animation: move linear 2s  infinite;
+    /* animation:动画名称 动画深度 动画时长 动画次数 动画方向 执行完毕状态; */
+}
+</style>
+<body>
+<div class="outer"></div>
+</body>
+```
+
+## css变量
+
+定义全局变量：
+```css
+:root {
+    --color: #333;
+}
+/* 使用 */
+color: var(--color);
+```
+定义局部变量：
+```css
+.box {
+    --width: 100px;
+}
+```
+less定义变量：
+```less
+@color: #333;
+.box {
+    color: var(@color);
+}
+```
+scss定义变量：
+```scss
+$color: #333;
+.box {
+    color: var($color);
+}
+```
+
+## 移动端常见问题
+
+1. 点击事件300ms延迟，解决下载fastclick的包
+2. 忽略Android平台中对邮箱地址的识别
+```html
+<meta name="format-detection" content="email=no" />
+```
+3. 当网站添加到主屏幕快速启动方式，隐藏地址栏，针对ios的safari
+```html
+<meta name="app-mobile-web-app-capable" content="yes" />
+```
+
+## 画一条0.5px的线
+
+```css
+transform: scale(0.5,0.5);
+```
+
+## 实现一个三角形
+
+```css
+div {
+    width: 0;
+    height: 0;
+    border: 50px solid transparent;
+    border-bottom-color: brown;
+}
+```
+
+## 实现一个扇形
+
+```css
+div {
+    width: 0;
+    height: 0;
+    border: 50px solid transparent;
+    border-radius: 100px;
+    border-bottom-color: brown;
+}
+```
 
 ## 实现两栏布局
 
@@ -489,7 +852,51 @@ img.offsetTop < window.innerHeight + document.body.scrollTop
   </body>
 ```
 
-## Flex布局
+## 实现一个时钟效果
 
-flex布局设置以后，子元素的float、clear、vertical-align属性将失效。采用flex布局的元素，称为flex容器，子元素称为flex项目。容器默认存在两根轴：水平的主轴（main axis）和垂直的交叉轴（cross axis）。
+```html
+<style>
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #282c34;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.clock {
+    font-size: 48px;
+    border: 2px solid white;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
+<body>
+<div class="clock">
+    <div id="time"></div>
+</div>
+
+<script>
+    function updateTime() {
+    const now = new Date();
+    //padStart() 方法用指定字符在字符串头部填充指定长度*
+    const hours = String(now.getHours()).padStart(2, '0');  
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+
+    const timeString = `${hours}:${minutes}:${seconds}`;
+    document.getElementById('time').textContent = timeString;
+    }
+
+    // 每秒更新一次时间
+    setInterval(updateTime, 1000);
+
+    // 初始化时钟
+    updateTime();
+</script>
+</body>
+```
 

@@ -8,6 +8,7 @@ export default defineConfig({
   ],
   title: "秋忆CC个人博客",
   description: "部署网站",
+  metaChunk:true,
   markdown: {},
   themeConfig: {
     logo: "/logo.png",
@@ -53,6 +54,8 @@ export default defineConfig({
         items:[
           {text:"HTML",link:"/pages/interview/html"},
           {text:"CSS",link:"/pages/interview/css"},
+          {text:"JS",link:"/pages/interview/js"},
+          {text:"VUE",link:"/pages/interview/vue"},
         ],
       },
       { text: "TS", link: "/pages/ts" },

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>圆形钟表</title>
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #282c34;
+      }
+
+      .clock {
+        position: relative;
+        width: 250px;
+        height: 250px;
+        border: 8px solid white;
+        border-radius: 50%;
+        background-color: black;
+      }
+
+      .hour,
+      .minute,
+      .second {
+        position: absolute;
+        background-color: white;
+        transform-origin: bottom;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
+      .hour {
+        width: 6px;
+        height: 60px;
+        bottom: 125px; /* 1/2 高度 - hour 高度 */
+        border-radius: 6px;
+      }
+
+      .minute {
+        width: 4px;
+        height: 80px;
+        bottom: 115px; /* 1/2 高度 - minute 高度 */
+        border-radius: 4px;
+      }
+
+      .second {
+        width: 2px;
+        height: 90px;
+        background-color: red; /* 秒针为红色 */
+        bottom: 115px; /* 1/2 高度 - second 高度 */
+        border-radius: 2px;
+      }
+
+      .center {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        background-color: white;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="clock">
+      <div class="hour" id="hour-hand"></div>
+      <div class="minute" id="minute-hand"></div>
+      <div class="second" id="second-hand"></div>
+      <div class="center"></div>
+    </div>
+
+    <script>
+      function setClock() {
+        const now = new Date();
+
+        const seconds = now.getSeconds();
+        const minutes = now.getMinutes();
+        const hours = now.getHours();
+
+        const secondHand = document.getElementById('second-hand');
+        const minuteHand = document.getElementById('minute-hand');
+        const hourHand = document.getElementById('hour-hand');
+
+        const secondsDegrees = (seconds / 60) * 360 + 90; // +90是为了调整起点
+        const minutesDegrees = (minutes / 60) * 360 + (seconds / 60) * 6 + 90; // +90是为了调整起点
+        const hoursDegrees = (hours / 12) * 360 + (minutes / 60) * 30 + 90; // +90是为了调整起点
+
+        secondHand.style.transform = `rotate(${secondsDegrees}deg)`;
+        minuteHand.style.transform = `rotate(${minutesDegrees}deg)`;
+        hourHand.style.transform = `rotate(${hoursDegrees}deg)`;
+      }
+
+      // 每秒更新一次时钟
+      setInterval(setClock, 1000);
+
+      // 初始化设置
+      setClock();
+    </script>
+    <script>
+      function calc(a, b) {
+        a = parseInt(a);
+        b = parseInt(b);
+        return a + b;
+      }
+      let tokens = ['2', '3'];
+      console.log(tokens.reduce(calc));
+    </script>
+  </body>
+</html>

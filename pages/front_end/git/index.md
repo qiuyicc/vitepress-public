@@ -357,9 +357,80 @@ docker run -d -p 8000:3000 test-server //运行镜像
 ![成功运行](/dockerProfile_success.png)
 
 
-### Docker 上传项目
+### Docker 上传项目及容器间通信
+
+1. 在项目根目录下新建.dockerignore文件，排除不需要上传的文件和Dockerfile文件
+```ts
+FROM node:20
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+COPY . /usr/src/app/
+RUN npm install 
+RUN npm install -g typescript
+RUN npm run tsc 
+EXPOSE 7001
+CMD npx egg-scripts start  --title=egg-server-example
+```
+2. 对于项目间Docker通信，比如要和mongodb通信,配置production里面mongoose配置
+```ts
+config.mongoose = {
+  //url: 'mongodb://localhost:27017/lego',
+  url: 'mongodb://mongo:27017/lego', //改为mongo
+};
+```
+3. 创建network通信
+```ts
+docker network create lego //创建名为lego的网络
+docker run -d --network lego --name mongo -p 27017:27017 mongo
+--network lego 指明容器加入lego网络
+--name mongo 给容器起名mongo,和项目里面的mongo名称对应上
+```
+4. build docker镜像
+```ts
+docker build -t lego-backend .
+docker run -d -p 7001:7001 --network lego lego-backend
+```
+![成功运行](/docker_project.png)
 
 
+### Docker-Compose
+
+Docker-Compose是Docker官方提供的编排工具，可以定义多个Docker容器的应用环境，并定义它们之间的交互关系，比如启动顺序、依赖关系等。
+
+1. 安装，如果是安装了客户端，Mac和Windows会自定安装Docker-Compose，如果是Linux需要手动安装
+```ts
+docker-compose --version
+```
+2. 配置文件，docker-compose.yml文件，定义容器的配置信息，比如容器的镜像、端口、环境变量、依赖关系等
+```ts
+# docker-compose.yml
+version: '3'
+services:
+  lego-mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    container_name: lego-mongo
+    volumes:
+      - './docker-volumes/mongo/data:/data/db'
+  lego-backend:
+    depends_on:
+      - lego-mongo
+    ports:
+      - 7001:7001
+    container_name: lego-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+```
+3. 启动，在项目根目录下执行命令
+```ts
+docker-compose up -d //启动容器
+docker-compose down //停止容器
+docker-compose ps //查看容器状态
+docker-compose logs //查看容器日志
+docker-compose up -d --build //重新构建镜像并启动容器
+```
 
 
 

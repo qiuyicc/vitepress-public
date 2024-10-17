@@ -46,8 +46,6 @@
 
 // console.log(getAllSort([1, 2, 3]));
 
-
-
 // console.log((2).constructor === Number);
 // console.log(('').constructor === String);
 // console.log((true).constructor === Boolean);
@@ -147,7 +145,6 @@
 // instance1.getName()
 // instance2.getName()
 
-
 // class CreateInstance {
 //   constructor(name) {
 //     this.name = name;
@@ -196,7 +193,6 @@
 // function Subject(){
 //   this.state = null;
 //   this.observers = [];
-  
 
 //   this.getState = function(){
 //     return this.state
@@ -274,42 +270,362 @@
 // // observer3收到新状态 new state2
 // // observer4收到新状态 new state2
 
+// class Observe {
+//   caches = {}
 
-class Observe {
-  caches = {}
+//   on(eventName,fn){
+//      this.caches[eventName] = this.caches[eventName] || []
+//     this.caches[eventName].push(fn)
+//   }
 
-  on(eventName,fn){
-     this.caches[eventName] = this.caches[eventName] || []
-    this.caches[eventName].push(fn)
+//   emit(eventName,data){
+//     if(this.caches[eventName]){
+//       this.caches[eventName].forEach(fn => fn(data))
+//     }
+//   }
+
+//   off(eventName,fn){
+//     if(this.caches[eventName]){
+//       const newFns = fn?this.caches[eventName].filter(item => item!== fn):[]
+//       this.caches[eventName] = newFns
+//     }
+//   }
+// }
+
+// const observe = new Observe()
+
+// const fn1 = (data) => {
+//   console.log('fn1',data)
+// }
+// const fn2 = (data) => {
+//   console.log('fn2',data)
+// }
+// observe.on('click1',fn1)
+// observe.on('click2',fn2)
+
+// observe.emit('click1','data') // click1 data
+// observe.off('click1',fn1)
+
+// const filterFn = (arr) =>{
+//   return arr.filter((item,index) => {
+//     return arr.indexOf(item) === index
+//   })
+// }
+
+// console.log(filterFn([1,1,1,2,2]));
+
+// const reduceArr = (arr) =>{
+//   return arr.reduce((acc,item) => {
+//     if(!acc.includes(item)){
+//       acc.push(item)
+//     }
+//     return acc
+//   },[])
+// }
+
+// console.log(reduceArr([1,1,1,2,2]));
+
+// const fn = (arr) => {
+//   let res = []
+//   for(let key of arr){
+//     if(!res.includes(key)){
+//       res.push(key)
+//     }
+//   }
+//   return res
+// }
+
+// console.log(fn([1,1,1,2,2]));
+
+// console.log([...new Set([1,2,3,3,4,5,5,6,6])]);
+// let num = 123456789;
+
+// let formatNumber = num.toLocaleString()
+
+// console.log(formatNumber);
+
+// function debounce(fn, delay) {
+//   let timer = null;
+//   return function () {
+//     let args = arguments;
+//     let context = this
+//     if (timer) clearTimeout(timer);
+//     timer = setTimeout(() => {
+//       fn.apply(context, args);
+//     }, delay)
+//   }
+// }
+
+// function throttle(fn, delay) {
+//   let isThrottle = false;
+//   return function () {
+//     let args = arguments;
+//     let context = this;
+//     if (!isThrottle) {
+//       fn.apply(context, args);
+//       isThrottle = true;
+//       setTimeout(() => {
+//         isThrottle = false;
+//       }, delay);
+//     }
+//   };
+// }
+
+function shallowCopy(obj) {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
   }
-
-  emit(eventName,data){
-    if(this.caches[eventName]){
-      this.caches[eventName].forEach(fn => fn(data))
-    }
-  }
-
-  off(eventName,fn){
-    if(this.caches[eventName]){
-      const newFns = fn?this.caches[eventName].filter(item => item!== fn):[]
-      this.caches[eventName] = newFns
-    }
-  }
+  return Object.assign({}, obj);
 }
 
-const observe = new Observe()
+// const original = {
+//   a: 1,
+//   b: 2,
+//   c: {
+//     d: 3,
+//     e: 4,
+//   },
+// };
+// const copy = shallowCopy(original);
+// console.log(copy); // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// copy.c.d = 5
+// console.log(original); // { a: 1, b: 2, c: { d: 5, e: 4 } }
+// copy.a = 10
+// console.log(original); // { a: 1, b: 2, c: { d: 5, e: 4 } }
+// console.log(copy);
 
-const fn1 = (data) => {
-  console.log('fn1',data)
+// const shallowCopy = (target) => {
+//   if (typeof target !== 'object' || target === null) {
+//     return target;
+//   }
+//   if(/^(Function|RegExp|Date|Map|WeakMap|Set|WeakSet)$/i.test(target.constructor.name)) return target
+//   const copy = Array.isArray(target) ? [] : {};
+//   for (let key in target) {
+//     if (target.hasOwnProperty(key)) {
+//       copy[key] = target[key];
+//     }
+//   }
+//   return copy;
+// }
+
+// const original = {
+//   a: 1,
+//   b: 2,
+//   c: {
+//     d: 3,
+//     e: 4,
+//   },
+// }
+
+// const copy = shallowCopy(original);
+// console.log(copy); // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// copy.c.d = 5
+// console.log(original); // { a: 1, b: 2, c: { d: 5, e: 4 } }
+// copy.a = 10
+// console.log(original); // { a: 1, b: 2, c: { d: 5, e: 4 } }
+// console.log(copy);
+
+// let clone = function(obj){
+//   if(typeof obj !== 'object' || obj === null) return obj
+//   if(obj.constructor === Date) return new Date(obj)
+//   if(obj.constructor === RegExp) return new RegExp(obj)
+//   let newObj = new obj.constructor
+//   for( let key in obj){
+//       if(obj.hasOwnProperty(key)){
+//           let value = obj[key]
+//           newObj[key] = typeof value === 'object'?clone(value):value
+//       }
+//   }
+//   return newObj
+// }
+
+// let obj = {
+//   a: 1,
+//   b: 2,
+//   c: {
+//     d: 3,
+//     e: 4,
+//   },
+// }
+
+// let obj2 = clone(obj)
+// console.log(obj2) // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// obj2.c.d = 5
+// console.log(obj) // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// console.log(obj2);// { a: 1, b: 2, c: { d: 5, e: 4 } }
+// obj2.a = 10
+// console.log(obj); // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// console.log(obj2); // { a: 10, b: 2, c: { d: 5, e: 4 } }
+
+// const obj = {
+//   a: 1,
+//   b: 2,
+//   c: {
+//     d: 3,
+//     e: 4,
+//   },
+// }
+// const obj2 = JSON.parse(JSON.stringify(obj))
+// console.log(obj2) // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// obj2.c.d = 5
+// console.log(obj) // { a: 1, b: 2, c: { d: 3, e: 4 } }
+// console.log(obj2) // { a: 1, b: 2, c: { d: 5, e: 4 } }
+
+// const myNew = (constructor, ...args) => {
+//   // return Reflect.construct(constructor, args);
+//   const newObj = Object.create(constructor.prototype);
+//   let res = constructor.apply(newObj, args);
+//   return Object.prototype.toString.call(res) === '[object Object]'
+//     ? res
+//     : newObj;
+// };
+
+// // class Person {
+// //   constructor(name, age) {
+// //     this.name = name;
+// //     this.age = age;
+// //   }
+// // }
+
+// function Person(name, age) {
+//   this.name = name;
+//   this.age = age;
+// }
+
+// const person = myNew(Person, 'zhangsan', 18);
+// console.log(person); // { name: 'zhangsan', age: 18 }
+
+// function curry(fn){
+//   return function curried(...args){
+//     if(args.length >= fn.length){
+//       return fn.apply(this,args)
+//     }
+//     return function(...args2){
+//       return curried.apply(this,[...args,...args2])
+//     }
+//   }
+// }
+
+// function add(a,b,c){
+//   return a+b+c
+// }
+
+// const curriedAdd = curry(add)
+// console.log(curriedAdd(1)(2)(3)) // 6
+// console.log(curriedAdd(1,2)(3)) // 6
+
+// function PromiseAjax(url, method = 'GET', data = null) {
+//   return new Promise((resolve, reject) => {
+//     const xhr = new XMLHttpRequest();
+//     xhr.open(method, url, true);
+//     if (method === 'POST') {
+//       xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+//     }
+//     xhr.onreadystatechange = function () {
+//       if (xhr.readyState === 4) {
+//         if (xhr.status === 200) {
+//           resolve(xhr.responseText);
+//         }
+//         reject(new Error(xhr.statusText));
+//       }
+//     };
+//     xhr.onerror = function () {
+//       reject(new Error('Network Error'));
+//     };
+//     if (data) {
+//       xhr.send(data);
+//     } else {
+//       xhr.send();
+//     }
+//   });
+// }
+// PromiseAjax('https://jsonplaceholder.typicode.com/posts/1').then(data=>{
+//   console.log(data)
+// }).catch(error=>{
+//   console.log(error)
+// })
+// let a = 1;
+// let b = 10;
+
+// a = a + b
+// b = a - b
+// a = a - b
+
+// let arr = [1, 2, [3, 4, [5, 6, [7, 8]]]];
+// // function flatten(arr) {
+// //   return arr.reduce((acc, val) => {
+// //     if (Array.isArray(val)) {
+// //       return acc.concat(flatten(val));
+// //     }else {
+// //       return acc.concat(val);
+// //     }
+// //   },[])
+// // }
+// function flatten(arr) {
+//   while(arr.some(item => Array.isArray(item))){
+//     arr = [].concat(...arr)
+//   }
+//   return arr
+// }
+// console.log(flatten(arr));
+// function flatten(arr) {
+//   const reg = /\[|\]/g;
+//   return JSON.stringify(arr)
+//     .replace(reg, '')
+//     .split(',')
+//     .map((item) => JSON.parse(item));
+// }
+
+// console.log(flatten(arr));
+
+// function flatten(arr) {
+//   let res = []
+//   for(let key of arr){
+//     if(Array.isArray(key)){
+//       res = res.concat(flatten(key))
+//     }else {
+//       res.push(key)
+//     }
+//   }
+//   return res
+// }
+// console.log(flatten(arr))
+// [
+//   1,
+//   2,
+//   3,
+//   4,
+//   5,
+//   6,
+//   7,
+//   8,
+//   [ 7, 8 ],
+//   [ 5, 6, [ 7, 8 ] ],
+//   [ 3, 4, [ 5, 6, [Array] ] ]
+// ]
+
+// function add(){
+//   let sum = 0
+//   function innerAdd(num){
+//     sum += num
+//     return innerAdd
+//   }
+//   innerAdd.toString = () => sum
+//   innerAdd.getResult = () => sum
+//   return innerAdd
+// }
+// console.log(add()(1)(2)(3).toString()); //6
+// console.log(add(1)(3)(3).getResult()); // 6
+
+
+function toArray(arrLike){
+  return Array.prototype.slice.call(arrLike)
 }
-const fn2 = (data) => {
-  console.log('fn2',data)
+
+function toArray(arrLike){
+  return Array.from(arrLike)
 }
-observe.on('click1',fn1)
-observe.on('click2',fn2)
 
-observe.emit('click1','data') // click1 data
-observe.off('click1',fn1)
-
-
-
+function toArray(arrLike){
+  return [...arrLike]
+}

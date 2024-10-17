@@ -115,29 +115,64 @@
       //   }
       //   f2();
 
-      function curry(fn) {
-        if (fn.length === 0) {
-          return fn;
-        }
-        function curried(depth, args) {
-          return function (newArgument) {
-            console.log('newArgument', newArgument);
-            if (depth - 1 === 0) {
-              return fn(...args, newArgument);
+      // function curry(fn) {
+      //   if (fn.length === 0) {
+      //     return fn;
+      //   }
+      //   function curried(depth, args) {
+      //     return function (newArgument) {
+      //       if (depth - 1 === 0) {
+      //         return fn(...args, newArgument);
+      //       }
+      //       return curried(depth - 1, [...args, newArgument]);
+      //     };
+      //   }
+      //   return curried(fn.length, []);
+      // }
+      // function add(a, b) {
+      //   return a + b;
+      // }
+      // const curriedAdd = curry(add);
+      // const addFive = curriedAdd(5);
+      // debugger;
+      // let result = [0, 1, 2, 3, 4, 5].map(addFive);
+      // console.log(result);
+
+      function PromiseAjax(url, method = 'GET', data = null) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(method, url, true);
+          if (method === 'POST') {
+            xhr.setRequestHeader(
+              'Content-type',
+              'application/x-www-form-urlencoded'
+            );
+          }
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+              if (xhr.status === 200) {
+                resolve(xhr.responseText);
+              }
+              reject(new Error(xhr.statusText));
             }
-            return curried(depth - 1, [...args, newArgument]);
           };
-        }
-        return curried(fn.length, []);
+          xhr.onerror = function () {
+            reject(new Error('Network Error'));
+          };
+          if (data) {
+            xhr.send(data);
+          } else {
+            xhr.send();
+          }
+        });
       }
-      function add(a, b) {
-        return a + b;
-      }
-      const curriedAdd = curry(add);
-      const addFive = curriedAdd(5);
-      debugger;
-      let result = [0, 1, 2, 3, 4, 5].map(addFive);
-      console.log(result);
+      PromiseAjax('https://jsonplaceholder.typicode.com/posts/1')
+        .then((data) => {
+          console.log(data);
+        })
+        .catch((error) => {
+          console.log(error);
+        });
     </script>
   </body>
 </html>

@@ -90,6 +90,230 @@ keep-alive组件可以缓存组件的状态，避免重新渲染，提高性能�
 
 ## Vue SSR
 
+SSR是Server-Side Rendering的缩写，是一种服务端渲染的技术，可以将Vue组件渲染成HTML字符串，然后将其直接发送给浏览器，实现了服务端渲染。SSR有更好地SEO、并且首屏加载速度更快等特点。不过Vue在服务端会受到限制，不能支持beforeCreate、created两个钩子，当需要一些外部扩展库时，服务器也会有更大的负载压力。
+
+## Vue组件的data为什么是函数
+
+一个组件被复用多次时，会创建多个实例。本质上，这些实例使用的都是同一个构造函数。如果data是对象的话，会引用同一个对象，影响所有实例。
+
+## Vue的Computed
+
+当组件实例触发生命周期函数beforeCreate后，会对computed进行处理。
+1. 遍历computed配置中的所有属性，为每一个属性创建一个Watcher对象，并传入一个函数，该函数的本质是computed配置中的getter，这样，getter运行过程中就会进行依赖收集。
+2. 为计算属性设置的Watcher不会立即执行，因为计算属性不一定被渲染函数使用。因此在创建Watcher时，使用了lazy选项，只有当计算属性被渲染函数使用时，才会执行。
+3. 受到lazy影响，Watcher内部会保存两个关键属性来实现缓存，一个是value，一个是dirty。value用于保存Watcher运行的结果，一开始为undefined，dirty用于标记是否需要重新计算，也就是指示当前value是否过时，一开始为true
+4. Watcher创建好后，vue使用代理将计算属性挂载到实例上，当读取计算属性时，vue检查当前对应的Watcher的dirty是否过时，如果是则运行defineComputed函数，计算依赖，保存结果到value中并设置dirty为false，然后返回。如果dirty为false，直接返回Watcher中的value
+5. 在依赖收集时，不仅会收集到计算属性的Watcher，还会收集到组件的Watcher，当计算属性的依赖发生变化，会先触发计算属性的Watcher执行，只需要设置dirty为true，然后不做任何处理。由于收集到了组件的Watcher，因此组件会重新渲染，而重新渲染时又读取计算属性，由于前面设置了dirty为true，因此会重新计算，并更新Watcher的value。
+6. 对于计算属性的setter，当设置setter时，直接运行即可
+
+## Vue的watch与computed的区别
+
+区别：
+   1. 都是观察数据变化
+   2. 计算属性监听自定义变量，watch监听data、props里面的数据变化
+   3. computed有缓存，watch没有缓存
+   4. watch可以异步，computed不可以
+   5. watch一对多(监听一个值)，computed多对一(监听属性依赖于其他属性)
+   6. watch接受两个参数，一个新值，一个旧值
+   7. computed可以返回值，watch只能执行函数
+   8. computed是函数时，都有get、set方法，默认走get方法，必须有返回值
+   9. watche可以开启deep深度监听，immediate是否立即执行，computed没有
+
+## Vue complier
+
+使用Vue创建HTML的两大方式：
+1. template：使用template创建的HTML，会被编译成render函数，然后渲染成虚拟DOM。
+2. render函数：使用render函数创建的HTML，会被编译成虚拟DOM。
+
+complier的作用是将template或者render函数编译成渲染函数，渲染函数的作用是将虚拟DOM渲染成真实的DOM。
+1. parse，接受template原始模板，按模板的节点和数据生成对应的ast
+2. optimize，优化ast，遍历ast的节点，标记静态节点，方便后续diff减少对比，提高性能
+3. generate，把前两步生成完善的ast，组成render字符串，然后将reder字符串通过new Function()创建渲染函数
+
+## Vue修饰符
+
+1. 事件修饰符
+   1. .stop,阻止冒泡
+   2. .prevent,阻止默认事件
+   3. .capture,事件捕获
+   4. .self,只触发当前元素自身的事件
+   5. .once,只触发一次
+   6. .passive,事件的默认行为立即执行，不会等待事件回调执行完毕
+2. 按键修饰符
+   1. .left,按下左键
+   2. .right,按下右键
+   3. .middle,按下中键
+   4. .ctrl,按下ctrl键
+   5. .shift,按下shift键
+   6. .alt,按下alt键
+   7. .meta,按下meta键
+   8. .enter,按下回车键
+   9. .tab,按下tab键
+   10. .delete,按下delete键
+   11. .esc,按下esc键
+   12. .space,按下空格键
+   13. .up,按下上方向键
+   14. .down,按下下方向键
+   15. .left,按下左方向键
+   16. .right,按下右方向键
+3. 表单修饰符
+   1. .lazy,输入框失去焦点时才会更新
+   2. .number,输入框只能输入数字
+   3. .trim,输入框输入内容前后自动去除空格
+   4. .debounce,输入框输入内容后，等待一段时间后才会更新
+
+## Vue项目性能优化
+
+1. 编码阶段
+   1. 减少data中不必要的数据，data中的数据会增加getter、setter函数，收集watcher，增加内存占用
+   2. v-if和v-show不连用，更多情况下，使用v-show
+   3. 使用v-for给每项元素绑定事件时使用事件代理
+   4. SPA页面采用keep-alive组件缓存组件状态，减少页面切换的开销
+   5. key值保证唯一且必须要书写
+   6. 使用路由懒加载和异步组件
+   7. 防抖、节流
+   8. 第三方模板按需导入
+   9. 长列表区域动态加载
+   10. 图片懒加载
+2. SEO优化
+    1. 预渲染
+    2. SSR
+3. 打包优化
+   1. 压缩代码
+   2. Tree-Shaking/Scope-Hoisting
+   3. CDN加载第三方模板
+   4. 多线程打包happypack
+   5. splitChunks抽离公共文件
+   6. sourceMap
+4. 用户体验
+   1. 骨架屏
+   2. PWA
+5. 服务器
+   1. 缓存优化(服务端缓存、客户端缓存)
+   2. gzip压缩 
+
+## Vue优化SPA首批加载速度
+
+1. 请求优化，将第三方类库放到CDN上，减少项目体积，另外CDN可以实现负载均衡，提高响应速度。
+2. 缓存，将长时间不改变的第三方类库或者静态资源设置为强缓存，将max-age设置一个长时间，将访问路径加上hash，hash变化再获取最新资源
+3. gzip，开启gzip，减少传输资源大小
+4. http2，chrome浏览器对同域名的tcp链接数量有限制，6个，超过连接数，必须等到之前的请求收到响应后才能继续发送，而http2则可以在tcp链接中并发多个请求没有限制。
+5. 懒加载，当url匹配到相应的路由时，才通过import动态加载相应的组件，这样首屏加载的速度会更快
+6. 预渲染，由于浏览器在渲染出页面时，需要先加载html、css、js等资源，因此会有一段白屏时间，可以添加loading、或者骨架屏减少白屏对用户的影响
+7. 第三库打包，对于一些UI、类库，尽量使用按需加载，减少打包体积
+8. 使用可视化工具分析打包后的体积，webpack-bundle-analyzer、webpack-visualizer-plugin等，对其中比较大的模板进行优化
+9. 提交代码使用率，利用代码分割，将脚本中无需立即调用的代码在代码构建时转变为异步加载的过程
+10. 封装，构建良好的项目架构，按照项目的需求进行全局组件、过滤器、指令、utils等进行公共封装，减少代码冗余，提高代码复用性
+11. 图片懒加载，使用图片懒加载可以优化减少http请求开销
+12. 使用svg图标，使用svg作为图标，相比于普通的图片拥有更好的质量和更少的体积，并且不需要额外的http请求
+13. 压缩图片，使用image-webpack-loader压缩图片，可以减少体积，提高加载速度
 
 
+## Vue中的key
 
+key的作用是更加高效地更新虚拟DOM，提高渲染效率。
+![diff](/diff.png)
+
+## 组件中写name的好处
+
+1. 可以通过name直接找到对应组件(递归组件：组件自身调用自身)
+2. 可以通过name属性实现缓存功能(keep-alive)
+3. 可以通过name来识别组件(跨级通信时)
+4. 使用vue-devtools可以更方便地查看组件的依赖关系
+
+## Vue中的ref
+
+ref的作用是用来给元素或子组件注册引用信息，引用信息将会注册在父组件的$refs对象上。
+1. 如果在普通的DOM上，引用指向DOM元素
+2. 如果在子组件上，引用指向子组件实例
+
+## 请求数据一般在哪个生命周期中
+
+请求数据可以在created、beforeMount、mounted生命周期中进行，因为这几个钩子中，data已被创建，可以对数据进行操作。推荐在created中进行请求：
+1. 更快地获取服务端数据，减少页面的loading时间
+2. SSR不支持beforeMount、mounted钩子函数，放在created中有助于代码一致性
+3. created是在模板渲染成html之前调用，而如果在mounted中调用请求数据，可能会导致页面闪屏
+
+## 虚拟列表
+
+只对可见区域进行渲染，对非可见区域不渲染或部分渲染，从而提高性能
+
+虚拟列表的几个步骤：
+1. 计算当前可视区域的起始数据索引
+2. 计算当前可视区域的结束数据索引
+3. 计算当前可视区域的数据，渲染到页面
+4. 计算startIndex对应的数据在整个列表中的偏移量startOffset
+```html
+<div class="infinite-list-container"> 可视区域容器
+    <div class="infinite-list-phantom"> 容器占位，高度为列表总高度，用于形成滚动条
+        <div class="infinite-list"></div> 渲染区域
+    </div>
+</div>
+```
+1. 监听infinite-list-container的滚动scroll事件，获取滚动位置scrollTop
+2. 假设可视区域高度固定，为screenHeight
+3. 假设列表每项高度固定，为itemHeight
+4. 假设列表数据为listData
+5. 假设当前滚动位置为scrollTop
+ 
+则有：
+1. 列表总高度listHeight = listData.length * itemHeight
+2. 可显示的列表项数visibleItemCount = Math.ceil(screenHeight / itemHeight)
+3. 数据的起始索引startIndex = Math.floor(scrollTop / itemHeight)
+4. 数据的结束索引endIndex = startIndex + visibleItemCount
+5. 列表显示数据为visibleListData = listData.slice(startIndex, endIndex)
+6. 偏移量startOffset = scrollTop % itemHeight
+
+优化：
+1. 使用监听scroll的方式触发更新，当滚动发生后，scroll会频繁触发，很多时候会造成重复计算的问题
+2. 可以使用IntersectionObserver API，当元素进入可视区域时，触发更新，可以更加精准地触发更新，并且监听回调是异步触发，不随着目标元素滚动而触发
+
+
+## 懒加载
+
+1. 减少无用的资源加载，减少了服务器的压力和流量；
+2. 提高了用户体验，如果同时加载较多图片，可能等待的事件比较长
+3. 防止加载过多的图片而影响其他资源文件的加载
+
+实现原理：  
+当对图片的src赋值的时候，浏览器就会请求资源。根据这个原理可以使用HTML5的data-xxx属性来存储图片的路径，在需要图片的时候把data-xxx路径赋值给src属性。懒加载的重点是确定需要加载哪张图片，也就是确定可视区域内的图片。
+
+Vue3实现懒加载：
+```js
+导入VueUse插件，使用vueuse封装的useIntersectionObserver监听DOM元素是否进入可视区域
+app.directive('lazy', {
+    mounted(el:HTMLImageElement, {value}) {
+        const {stop} = useIntersectionObserver(el, ([{isIntersecting}])=>{
+            if(isIntersecting){
+                stop() //取消监听
+                el.src = value
+                el.onerror = () => {
+                    el.src = defaultImg
+                }
+            }
+        })
+    }
+})
+```
+```js
+实现列表数据懒加载，在hooks里面封装通用数据懒加载api
+export function useLazyData(callback:() => void) {
+    const target = ref(null)
+    const {stop} = useIntersectionObserver(target, ([{isIntersecting}])=>{
+        if(isIntersecting){
+            stop() //取消监听
+            callback()
+        }
+    })
+    return target
+}
+//组件中
+import useStore from '@/store'
+import { useLazyData } from '@/utls/hooks'
+const {home} = useStore()
+const target = useLazyData(() => home.fetchList())
+```
+
+懒加载和预加载的区别：
+1. 懒加载是延迟加载，当用户需要访问时，再去加载，可以提交网站的首屏加载速度，减少服务器压力
+2. 预加载是将所需的资源提前请求加载到本地，这样后面在需要用到时旧直接从缓存冲取，预加载能减少用户等待时间，比如图片的src属性

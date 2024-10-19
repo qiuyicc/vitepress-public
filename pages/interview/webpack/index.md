@@ -10,6 +10,23 @@
 6. 输出资源，根据入口和模块之间额依赖关系，组装成一个个包含多个模块的Chunk，再把每个Chunk转换成一个单独的文件加入到输出列表，这步是修改输出内容的最后机会
 7. 输出完成，确定后输出内容后，根据配置文件确定输出的路径和文件名，把文件内容写入到文件系统
 
+## Webpack的配置项
+
+1. entry：入口文件，Webpack从这里开始构建依赖关系图
+2. output：输出文件，Webpack在这里定义输出的目录和文件名
+3. module：模块配置，Webpack通过module来定义loader对不同文件类型的处理规则
+4. resolve：解析配置，Webpack通过resolve来配置模块如何被解析
+5. plugins：插件配置，Webpack通过plugins来引入第三方插件来实现更丰富的功能
+6. devServer：开发服务器配置，Webpack通过devServer来配置开发环境的服务器
+7. optimization：优化配置，Webpack通过optimization来配置Webpack的性能优化策略
+8. externals：用于配置排除打包的模块
+9. devtool：用于配置source-map的类型
+10. context：用于配置webpack的工作目录,必须是绝对路径
+11. target,指定的运行环境，可以是web，node，electron等
+12. performance：用于配置webpack的性能提示
+13. noParse：用于配置不需要解析的模块
+14. stats：用于配置webpack的输出信息
+
 ## 什么是Loader，Plugin
 
 loader：让webpack拥有加载和解析其他非JS文件的能力，webpack只能支持JS文件解析，loader在module.rules中配置，作为模板的解析规则，类型为数组，每一项都是一个Object，内部包含了test、loader、options等属性
@@ -116,6 +133,29 @@ import("module")
 7. 启动服务器监听特定端口
 8. 打开浏览器
 
+## Webpack Tree Shaking
 
+利用了ES6模块静态解构特性来去除生产环境不必要的代码优化过程
+1. 当Webpack分析代码时，它会标记出所有的import语句和export语句
+2. 然后，当Webpack确定某个模块没有被导入时，它会在生成的bundle中排除这个模块
+3. 同时，还会递归进行标记清理，以确保所有未使用的依赖项最终都不会出现在bundle
+```js
+module.exports = {
+    optimization: {
+        usedExports: true, // 标记出所有被使用的导出
+        concatenateModules: true, // 合并模块
+        minimize: true // 压缩代码
+    }
+}
+```
+
+## Webapck 与 Vite
+
+1. Vite 是一个新的前端构建工具，它使用原生ES模块，并使用Rollup打包代码，它可以实现更快的开发速度，更小的打包体积，以及更好的HMR体验。
+2. Webpack是先打包再启动开发服务器，Vite是直接启动，然后在需要时再按需编译
+3. 现代浏览器支持ES Module，会主动请求去获取所需文件。Vite利用这一点，将开发环境下的模块文件直接作为浏览器要执行的文件，而不是先打包，这种方式减少了中间环节，提高了效率。当使用ES Module时，开发者实际上是在构建一个依赖关系图，主流浏览器可以通过在script标签中设置type="module"来加载模块，而无需额外的配置。默认情况下，模块会延迟加载，执行实际在文档解析之后，触发DOMContentLoaded事件之前。
+4. Webpack底层是Node.js构建的，而Vite则是基于esbuild进行预构建依赖。esbuild采用Go语言编写，是纳秒级别，Node.js是毫秒级别的，因此Vite的启动速度更快。
+
+## 
 
 

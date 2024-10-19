@@ -5,7 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
   </head>
+  <script>
+    const routes = {
+      '/':()=>{
+        document.querySelector('#content').textContent = 'Home Page';
+      },
+      '/about':()=>{
+        document.querySelector('#content').textContent = 'About Page';
+      },
+      '/contact':()=>{
+        document.querySelector('#content').textContent = 'Contact Page';
+      }
+    }
+    const initRoute = () =>{
+      const hash = window.location.hash.slice(1);
+      if(routes[hash]){
+        routes[hash]();
+      }else {
+        routes['/']();
+      }
+    }
+    window.onload = initRoute;
+    window.onhashchange = initRoute;
+  </script>
   <body>
+
+<nav>
+  <a href="#/">Home</a>
+  <a href="#/about">About</a>
+  <a href="#/contact">Contact</a>
+</nav>
+<div id="content"></div>
+
     <script>
       // let obj = {
       //   name: 'zhangsan',
@@ -138,41 +169,57 @@
       // let result = [0, 1, 2, 3, 4, 5].map(addFive);
       // console.log(result);
 
-      function PromiseAjax(url, method = 'GET', data = null) {
-        return new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open(method, url, true);
-          if (method === 'POST') {
-            xhr.setRequestHeader(
-              'Content-type',
-              'application/x-www-form-urlencoded'
-            );
-          }
-          xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4) {
-              if (xhr.status === 200) {
-                resolve(xhr.responseText);
-              }
-              reject(new Error(xhr.statusText));
-            }
-          };
-          xhr.onerror = function () {
-            reject(new Error('Network Error'));
-          };
-          if (data) {
-            xhr.send(data);
-          } else {
-            xhr.send();
-          }
-        });
-      }
-      PromiseAjax('https://jsonplaceholder.typicode.com/posts/1')
-        .then((data) => {
-          console.log(data);
-        })
-        .catch((error) => {
-          console.log(error);
-        });
+      // function PromiseAjax(url, method = 'GET', data = null) {
+      //   return new Promise((resolve, reject) => {
+      //     const xhr = new XMLHttpRequest();
+      //     xhr.open(method, url, true);
+      //     if (method === 'POST') {
+      //       xhr.setRequestHeader(
+      //         'Content-type',
+      //         'application/x-www-form-urlencoded'
+      //       );
+      //     }
+      //     xhr.onreadystatechange = function () {
+      //       if (xhr.readyState === 4) {
+      //         if (xhr.status === 200) {
+      //           resolve(xhr.responseText);
+      //         }
+      //         reject(new Error(xhr.statusText));
+      //       }
+      //     };
+      //     xhr.onerror = function () {
+      //       reject(new Error('Network Error'));
+      //     };
+      //     if (data) {
+      //       xhr.send(data);
+      //     } else {
+      //       xhr.send();
+      //     }
+      //   });
+      // }
+      // PromiseAjax('https://jsonplaceholder.typicode.com/posts/1')
+      //   .then((data) => {
+      //     console.log(data);
+      //   })
+      //   .catch((error) => {
+      //     console.log(error);
+      //   });
+//       function mySetInterval(fn, delay) {
+//   let lastTime = Date.now()
+//   fn()
+//   let timer = setTimeout(()=>{
+//     clearTimeout(timer)
+//     const currentTime = Date.now()
+//     const timeDiff = currentTime - lastTime
+//     lastTime = currentTime
+//     console.log(`时间差: ${timeDiff}ms`);
+//     mySetInterval(fn,delay)
+//   },delay)
+// }
+
+// mySetInterval(() => {
+//   console.log('hello')
+// },2000)
     </script>
   </body>
 </html>

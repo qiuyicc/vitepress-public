@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <script>
+    const routes = {
+      '/': () => {
+        document.querySelector('#content').textContent = 'Home Page';
+      },
+      '/about': () => {
+        document.querySelector('#content').textContent = 'About Page';
+      },
+      '/contact': () => {
+        document.querySelector('#content').textContent = 'Contact Page';
+      },
+    };
+    let lastUrl = '';
+    function navigateTo(path){
+      window.history.pushState({}, path, window.location.origin + path);
+      initRoute();
+    };
+    function initRoute() {
+      const path = window.location.pathname;
+      lastUrl = path;
+      if (routes[path]) {
+        routes[path]();
+      } else {
+        routes['/']();
+      }
+    };
+    window.onload = initRoute;
+    window.onpopstate = initRoute;
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelector('nav').addEventListener('click', (event) => {
+        event.preventDefault();
+        const path = event.target.getAttribute('href');
+        navigateTo(path);
+      });
+    });
+  </script>
+  <body>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </nav>
+    <div id="content"></div>
+  </body>
+</html>

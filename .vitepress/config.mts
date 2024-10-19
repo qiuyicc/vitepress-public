@@ -52,7 +52,7 @@ export default defineConfig({
       {
         text: 'Coding Learning',
         items: [
-          { text: '算法', link: '/pages/interview/coding/algorithm-coding' },
+          { text: 'Algorithm', link: '/pages/interview/coding/algorithm-coding' },
           { text: 'JS', link: '/pages/interview/coding/js-coding' },
         ],
       },
@@ -64,6 +64,8 @@ export default defineConfig({
           { text: 'JS', link: '/pages/interview/js' },
           { text: 'VUE', link: '/pages/interview/vue' },
           { text: 'Webpack', link: '/pages/interview/webpack' },
+          { text: '小程序', link: '/pages/interview/weichat' },
+          { text: 'Git', link: '/pages/interview/git' }
         ],
       },
       {

@@ -425,4 +425,350 @@ function toArray(arrLike){
 }
 ```
 
-## 
+## 对象转树
+
+```js
+const obj = [
+  {id:1,name:'Item1',parentId:null},
+  {id:2,name:'Item1.1',parentId:1},
+  {id:3,name:'Item1.2',parentId:1},
+  {id:4,name:'Item2',parentId:null},
+  {id:5,name:'Item2.1',parentId:4},
+  {id:6,name:'Item2.2',parentId:4},
+]
+const buildTree = (data,parentId=null) => {
+  let tree = []
+  for(let item in data){
+    if(data[item].parentId === parentId){
+      const children = buildTree(data,data[item].id)
+      if(children.length){
+        data[item].children = children
+      }
+      tree.push(data[item])
+    }
+  }
+  return tree
+}
+console.log(buildTree(obj));
+```
+
+## 查找树形结构中符合要求的节点
+
+```js
+function findNodes(tree,fn){
+  const res =  []
+  function traverse(node){
+    if(fn(node)){
+      res.push(node)
+    }
+    for(const child of node.children){
+      traverse(child)
+    }
+  }
+  traverse(tree)
+  return res
+}
+const tree = {
+  val: 1,
+  children: [
+    {
+      val: 2,
+      children: [
+        {
+          val: 4,
+          children: []
+        },
+        {
+          val: 5,
+          children: []
+        }
+      ]
+    },
+  ]
+}
+const vertifyNode = node => node.val === 4
+console.log(findNodes(tree,vertifyNode));
+```
+
+## 用Promise实现图片异步加载
+
+```js
+function PromiseImg(url){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve(img)
+    }
+    img.onerror = () => {
+      reject(new Error('图片加载失败'))
+    }
+    img.src = url
+  })
+}
+PromiseImg('https://www.baidu.com/img/PCtm_d9c8750bed0b3c7d089fa7d55720d6cf.png')
+.then(img=>{
+  document.body.appendChild(img)
+}).catch(error=>{
+  console.log(error)
+})
+```
+
+## 使用SetTimeout模拟 setInterval
+
+```js
+function mySetInterval(fn, delay) {
+  let lastTime = Date.now()
+  fn()
+  let timer = setTimeout(()=>{
+    clearTimeout(timer)
+    const currentTime = Date.now()
+    const timeDiff = currentTime - lastTime
+    lastTime = currentTime
+    console.log(`时间差: ${timeDiff}ms`);
+    mySetInterval(fn,delay)
+  },delay)
+}
+mySetInterval(() => {
+  console.log('hello')
+},2000)
+```
+```js
+function SetInterval(fn, time) {
+  let lastTime = Date.now();
+  let timer = null;
+  let isRunning = true;
+  function loop() {
+    let currentTime = Date.now();
+    if (isRunning) {
+      fn();
+      console.log(`时间差: ${currentTime - lastTime}ms`);
+      const delayTime = Date.now()+time;
+      timer = setTimeout(loop, delayTime - Date.now());
+    }
+  }
+  timer = setTimeout(loop, time);
+  return () =>{
+    isRunning = false;
+    clearTimeout(timer)
+  }
+}
+const stopTimer = SetInterval(()=>{
+  console.log('hello');
+},2000)
+setTimeout(()=>{  
+  stopTimer()
+},5000)
+```
+
+## 实现一个简单路由
+基于Hash
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <script>
+    const routes = {
+      '/': () => {
+        document.querySelector('#content').textContent = 'Home Page';
+      },
+      '/about': () => {
+        document.querySelector('#content').textContent = 'About Page';
+      },
+      '/contact': () => {
+        document.querySelector('#content').textContent = 'Contact Page';
+      },
+    };
+    const initRoute = () => {
+      const hash = window.location.hash.slice(1);
+      if (routes[hash]) {
+        routes[hash]();
+      } else {
+        routes['/']();
+      }
+    };
+    window.onload = initRoute;
+    window.onhashchange = initRoute;
+  </script>
+  <body>
+    <nav>
+      <a href="#/">Home</a>
+      <a href="#/about">About</a>
+      <a href="#/contact">Contact</a>
+    </nav>
+    <div id="content"></div>
+  </body>
+</html>
+```
+使用History
+
+```js
+const routes = {
+  '/': () => {
+    document.querySelector('#content').textContent = 'Home Page';
+  },
+  '/about': () => {
+    document.querySelector('#content').textContent = 'About Page';
+  },
+  '/contact': () => {
+    document.querySelector('#content').textContent = 'Contact Page';
+  },
+};
+let lastUrl = '';
+function navigateTo(path){
+  window.history.pushState({}, path, window.location.origin + path);
+  initRoute();
+};
+function initRoute() {
+  const path = window.location.pathname;
+  lastUrl = path;
+  if (routes[path]) {
+    routes[path]();
+  } else {
+    routes['/']();
+  }
+};
+window.onload = initRoute;
+window.onpopstate = initRoute;
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('nav').addEventListener('click', (event) => {
+    event.preventDefault();
+    const path = event.target.getAttribute('href');
+    navigateTo(path);
+  });
+});
+```
+
+## LRU
+
+```js
+function myLRU(length){
+    this.length = length;
+    this.data = new Map()
+    this.set = function(key,value){
+        if(this.data.has(key)){
+            this.data.delete(key)
+        }
+        this.data.set(key,value);
+        if(this.data.size > this.length){
+            const dlKey = this.data.keys().next().value
+            this.data.delete(dlKey)
+        }
+    }
+    this.get = function(key){
+        if(!this.data.has(key)){
+            return null
+        }else {
+            const value = this.data.get(key)
+            this.data.delete(key)
+            this.data.set(key,value)
+            return value
+        }
+    }
+}
+const lru = new myLRU(4)
+```
+
+## 事件缓存
+
+```js
+function myCache(fn){
+    let cache = {}
+    return function(...args){
+        let key = JSON.stringify(args)
+        if(cache[key]){
+            return cache[key]
+        }else {
+            cache[key] = fn.apply(this,agrs)
+            return cache[key]
+        }
+    }
+}
+```
+
+## 给对象添加Symbol.iterator属性
+
+```js
+Object.prototype[Symbol.iterator] = function*() {
+  let index = 0;
+  let arr = Object.entries(this);
+  let length = arr.length;
+  while (true) {
+      if (index >= length) {
+          return false
+      } else {
+          let key = arr[index] && arr[index][0];
+          let val = arr[index] && arr[index][1];
+          let result = { [key]: val };
+          index++;
+          yield result 
+      }
+  }
+}
+const obj = {
+  name: 'zhangsan', 
+  age: 18,
+  city: 'beijing'
+}
+for (let key of obj) {
+  console.log(key); //{ name: 'zhangsan' } { age: 18 } { city: 'beijing' }
+}
+```
+
+## 给数组对象添加Symbol.iterator属性
+
+```js
+let  arrlike = {
+  0:'a',
+  1:'b',
+  2:'c',
+  length:3
+}
+arrlike[Symbol.iterator] = function(){
+  let index = 0;
+  return {
+      next:()=>{
+          if(index < this.length){
+              const result = {value:this[index],done:false}
+              index++;
+              return result
+          }else {
+              return {value:undefined,done:true}
+          }
+      }
+  }
+}
+
+for(let item of arrlike){
+  console.log(item)
+}
+const iter = arrlike[Symbol.iterator]()
+console.log(iter.next());
+```
+
+## intersectionObserver实现懒加载
+
+1. IntersectionObserver 是一个用于异步观察目标元素与其祖先元素或视口交叉状态的 API
+2. 回调函数 (entries) => {...} 会在被观察的元素的可见部分发生变化时被调用。entries 是一个包含了所有交叉状态变化的对象数组
+3. item.isIntersecting 是一个布尔值，用于判断当前观察到的元素是否在视口中
+4. io.unobserve(item.target)，表示停止监听该元素，因为它已经加载过
+```js
+const imgList = [...document.querySelectorAll('img')]
+var io = new IntersectionObserver((entries) =>{
+  entries.forEach(item => {
+    // isIntersecting是一个Boolean值，判断目标元素当前是否可见
+    if (item.isIntersecting) {
+      item.target.src = item.target.dataset.src
+      // 图片加载后即停止监听该元素
+      io.unobserve(item.target)
+    }
+  })
+}, {
+  root: document.querySelector('.root')
+})
+// observe遍历监听所有img节点
+imgList.forEach(img => io.observe(img))
+```

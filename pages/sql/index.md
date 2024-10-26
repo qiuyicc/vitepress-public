@@ -1009,6 +1009,18 @@ async function startServer() {
 startServer();
 ```
 
+## mongodb创建Auth
+
+```ts
+use admin //admin是mongodb的用户数据库
+db.createUser({user:'root',pwd:'123456',roles:[{role:'root',}]}) //创建root用户
+db.auth('root','123456') //验证root用户
+ ```
+ ```ts
+ mongod --config xxx/mongo.conf --auth //启动mongodb，指定配置文件，开启auth验证
+ mongo -u "root" -p "123456" --authenticationDatabase "admin" //连接mongodb，指定用户名和密,--authenticationDatabase指定开始验证的数据库
+ ```
+
 ## MongoDB 报错
 
 

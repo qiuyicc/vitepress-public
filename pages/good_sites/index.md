@@ -2,7 +2,7 @@
 
 ## [VitePress](https://vitepress.dev/zh/)<Badge type="danger">ClickToGo</Badge>
 VitePress 是一个由 Vue 和 Vite 驱动的静态网站生成器，它专注于内容而非 UI。它的目标是通过提供极快的开发速度和极简的配置，让你专注于写作。
-
+## [Github Actions](https://docs.github.com/zh/actions/about-github-actions/about-continuous-deployment-with-github-actions)<Badge type="danger">Github Actions</Badge>
 
 
 ## 实用网站

@@ -72,8 +72,394 @@ SSH连接：git@github.com:qiuyicc/lego.git
 6. git push -u origin main //推送本地仓库到远程仓库,并跟踪
 :::
 
+## Github Actions
+
+Github Actions是一个基于事件驱动的工作流自动化平台，它允许你自动化你的软件开发流程，例如：构建、测试、发布、部署。其他：
+1. github actions
+2. travis ci
+3. Circle CI
+4. Jenkins
+
+### YAML语法
+YAML（YAML Ain't Markup Language）是一种人类可读的数据序列化格式，常用于配置文件和数据交换。使用空格来进行缩进，可读性好。
+
+在线检测YAML语法：[YAMLCHECKER](https://yamlchecker.com/) [我的工具箱](https://toolgg.com/yaml-validator.html)
+```yml
+# scalar 纯量，不能再分割的量
+key：value
+number: 123
+boolean: true
+test_string: "Hello, world!"
+multiple_string: |
+  line1
+  line2
+  line3
+# 集合类型，使用缩进表示层级关系，最好是两个
+person:
+  name: "John"
+  age: 30
+  hobbies:
+    - reading
+    - writing
+# 数组或列表类型，使用-表示元素
+arr:
+  - 1
+  - 2
+  - name: "John"
+```
+
+### Github Actions的基本使用
+1. workflow是一个可配置的自动化流程，可以包含多个jobs，通过一个在repository中定义的.github/workflows/文件来定义，一个repository可以有多个workflow。
+2. Events，是触发workflow的特殊事件，比如，pull、request、push等。[Github Events](https://docs.github.com/zh/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows)
+3. Jobs，是workflow的主要工作单元，每个Jobs是在同一runner(处于github的一台特殊虚拟机，可支持各种操作系统)中进行的，每个步骤或是一个shell命令，或是一个可执行的action，每个步骤按顺序执行，并且相互依赖
+4. Actions，是可复用的工作流，使用actions可帮助我们减少在workflow中重复的工作，并可与其他人共享。[Github Actions](https://github.com/marketplace?type=actions)
+![github actions](/githubActions.png)
+```yml
+# .github/workflows/test-githubActions.yml
+name: Test GitHub Actions
+on: [push]
+jobs:
+  Ckeck-Github-Actions:
+    runs-on: ubuntu-latest 
+    steps:
+      - run: echo "triggered by a ${{ github.event_name }} event"
+      - run: echo "running on ${{ runner.os }}"
+      - name: check out repository code
+        uses: actions/checkout@v2
+      - run: echo "the ${{ github.respository }} repository has been cloned "
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+```
+![github actions](/githubActions2.png)
+```yml
+# .github/workflows/more-githubActions.yml
+name: More GitHub Actions
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        respository: 'lego'
+    - name: List files in the repository
+      run: |
+        ls ${{ github.workspace }}
+    - uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+    - run: node -v
+    - run: npm install -g typescript
+    - run: tsc -v
+```
+
+### Github Secrets
+
+1. Secrets是Github提供的一种安全机制，可以将敏感信息如密码、密钥等，加密后存储在仓库中，只有拥有仓库的权限的人才能访问。
+2. 点击某个仓库设置 -> 左侧菜单Secrets and variables -> Actions -> New repository secret -> 添加名称和值 -> 点击Add secret
+3. 使用
+```yml
+# .github/workflows/ssh-githubActions.yml
+name: SSH GitHub Actions
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    # 使用SSH Remote Command Action
+    - uses: appleboy/ssh-action@master
+    # 通过secrets可以获取到私密信息，如密码、密钥等
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        password: ${{ secrets.SSH_PWD }}
+        script-stop: true
+        # 脚本命令
+        script: |
+          pwd
+          ls -l
+          touch test.txt
+          echo ${{ secrets.TEST_MYSECRET }} >> test.txt
+
+```
+![github secret](/githubSecret.png)
+
+### Github Actions推送镜像到阿里云ACR
+
+1. 设置Github Secrets
+```ts
+// 阿里云账号AccessKey
+ACCESS_KEY_ID && ACCESS_KEY_SECRET
+// 阿里云容器镜像仓库名称
+ACR_PASSWORD && ACR_USERNAME
+```
+2. 编写相应的workflow文件
+   1. checkout代码
+   2. 创建.env文件，添加环境变量
+   3. 使用阿里云Actions进行docker longin
+   4. 使用阿里云Actions进行docker build
+   5. 使用阿里云Actions进行docker push
+```yml
+# .github/workflows/push-image.yml
+name: Push Docker Image
+on: [push]
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkpout the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+    # 创建env文件
+      - run: touch .env
+      - run: echo ACCESS_KEY_ID=${{ secrets.ACCESS_KEY_ID }} >> .env
+      - run: echo ACCESS_KEY_SECRET=${{ secrets.ACCESS_KEY_SECRET }} >> .env
+    # 登录阿里云ACR
+      - name: Login to Aliyun ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com
+          region-id: cn-chengdu
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+    # 构建镜像
+      - name: Build Docker Image
+        run: docker build --tag crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/xxxx/lego:1.0.1 .
+      - name: Push Docker Image
+        run: docker push crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/xxxx/lego:1.0.1
+```
+![推送ACR成功](/pushACR.png)
+
+### Github Actions部署到服务器
+
+使用github actions在服务器上部署对应代码并运行
+1. checkout代码
+2. 创建.env文件，添加项目所需的环境变量
+3. 创建文件夹，拷贝必要文件
+4. 将新建的文件夹拷贝到服务器中
+5. SSH远程登录服务器
+   1. 进入拷贝的文件夹内
+   2. 登录阿里云ACR
+   3. 停止原先的服务docker-compose down
+   4. 启动新服务docker-compose up -d
+   5. 清理敏感文件
+```yml
+name: Push Docker Image
+on: [push]
+jobs:
+  deploy-and-restart:
+    runs-on: ubuntu-latest
+    steps:
+    # Checkpout the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+    # 创建env文件
+      - name: create env file
+        run: |
+          touch .env
+          echo ACCESS_KEY_ID=${{ secrets.ACCESS_KEY_ID }} >> .env
+          echo ACCESS_KEY_SECRET=${{ secrets.ACCESS_KEY_SECRET }} >> .env
+          echo CLIENT_ID=${{ secrets.CLIENT_ID }} >> .env
+          echo CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} >> .env
+          echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
+          echo MONGO_INSERT_ROOT_USERNAME=${{ secrets.MONGO_INSERT_ROOT_USERNAME }} >> .env
+          echo MONGO_INSERT_ROOT_PASSWORD=${{ secrets.MONGO_INSERT_ROOT_PASSWORD }} >> .env
+          echo MONGO_DB_USERNAME=${{ secrets.MONGO_DB_USERNAME }} >> .env
+          echo MONGO_DB_PASSWORD=${{ secrets.MONGO_DB_PASSWORD }} >> .env
+          echo REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} >> .env
+          echo PING_ENV=${{ secrets.PING_ENV }} >> .env
+      # 拷贝必要文件
+      - name: 'copy necessary files'
+        run: |
+          mkdir lego-backend
+          cp .env docker-compose-online.yml lego-backend
+          cp -r mongo-entrypoint lego-backend
+          ls -a lego-backend
+      # 通过scp拷贝文件到服务器
+      - name: 'copy files to server'
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: 'lego-backend'
+          target: '~'
+      #  登录ssh服务器
+      - name: 'login server'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script-stop: true
+          # 登录阿里云ACR并执行docker命令
+          script: |
+            docker login --username=${{ secrets.ACR_USERNAME }} --password=${{ secrets.ACR_PASSWORD }} ${{ secrets.ACR_SERVER }}
+            cd ~/lego-backend
+            docker-compose -f docker-compose-online.yml down
+            docker-compose -f docker-compose-online.yml up -d
+            rm -rf .env
+            docker logout ${{ secrets.ACR_SERVER }}
+```
+
+### Github Actions优化获取提交信息
+
+解决问题：
+1. 不是每次commit都要构建并部署上线，只有特定情况下才会上线，比如合并到master分支、发布新版本等。
+2. 需要使用和该次相关的特殊信息，作为构建image的tag
+3. 可以使用提交的tag作为镜像tag，或者使用commit ID作为镜像tag
+
+```yml
+name: Tag Test
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+jobs:
+  test-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: test github tag
+      # 获取github ref
+      # 获取commit ID -> sha
+        run:
+          echo ${{ github.ref }}
+          echo ${{ github.sha }}
+          echo ${{ github.ref_name }}
+      - name: find and replace
+        uses: jacobtomlinson/gha-find-replace@master
+        # 找到docker-compose-online.yml文件中的tag，替换为github ref_name
+        with:
+          find: "{{tag}}"
+          replace: "${{ github.ref_name }}"
+          include: "docker-compose-online.yml"
+      - run: cat docker-compose-online.yml
+```
+```js
+git add .
+git commit -m "test tag"
+git tag -a v1.0.1 -m "release v1.0.1" //打标签
+git push --tags //推送标签到远程仓库
+```
+
+### Github Actions整合自动化部署流程
+```yml
+# .github/workflows/publish-project.yml
+name: Publish Project
+# 1.只接受项目有tag推送 // [!code ++]
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+    # 2. 创建env文件 // [!code ++]
+      - name: create env file
+        run: |
+          touch .env
+          echo ACCESS_KEY_ID=${{ secrets.ACCESS_KEY_ID }} >> .env
+          echo ACCESS_KEY_SECRET=${{ secrets.ACCESS_KEY_SECRET }} >> .env
+          echo CLIENT_ID=${{ secrets.CLIENT_ID }} >> .env
+          echo CLIENT_SECRET=${{ secrets.CLIENT_SECRET }} >> .env
+          echo JWT_SECRET=${{ secrets.JWT_SECRET }} >> .env
+          echo MONGO_INSERT_ROOT_USERNAME=${{ secrets.MONGO_INSERT_ROOT_USERNAME }} >> .env
+          echo MONGO_INSERT_ROOT_PASSWORD=${{ secrets.MONGO_INSERT_ROOT_PASSWORD }} >> .env
+          echo MONGO_DB_USERNAME=${{ secrets.MONGO_DB_USERNAME }} >> .env
+          echo MONGO_DB_PASSWORD=${{ secrets.MONGO_DB_PASSWORD }} >> .env
+          echo REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }} >> .env
+          echo PING_ENV=${{ secrets.PING_ENV }} >> .env
+    # 3. 阿里云ACR登录 // [!code ++]
+      - name: login ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: ${{ secrets.ACR_SERVER }}
+          region-id: cn-chengdu
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+    # 4. 构建镜像到ACR // [!code ++]
+      - name: build docker Image
+        run: docker build --tag crpi-u3rymwjz4yzwkbmm.cn-chengdu.personal.cr.aliyuncs.com/qiuyicc/lego:${{ github.ref_name }} .
+      - name: push docker Image
+        run: docker push crpi-u3rymwjz4yzwkbmm.cn-chengdu.personal.cr.aliyuncs.com/qiuyicc/lego:${{ github.ref_name }}
+    # 5. 查找compose文件并替换为相应的tag // [!code ++]
+      - name: find and replace tag in docker-compose file
+        uses: jacobtomlinson/gha-find-replace@master
+        with:
+          find: "{{tag}}"
+          replace: "${{ github.ref_name }}"
+          include: "docker-compose-online.yml"
+      - run: cat docker-compose-online.yml
+      # 6. 拷贝必要文件到lego-backend目录 // [!code ++]
+      - name: 'copy necessary files to lego-backend directory'
+        run: |
+          mkdir lego-backend
+          cp .env docker-compose-online.yml lego-backend
+          cp -r mongo-entrypoint lego-backend
+          ls -a lego-backend
+      # 7. 通过scp拷贝文件到服务器 // [!code ++]
+      - name: 'use scp copy files to server'
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: 'lego-backend'
+          target: '~'
+      # 8. 通过SSH登录重启服务 // [!code ++]
+      - name: 'login SSH server'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script-stop: true
+      # 9. 登录阿里云ACR // [!code ++]
+          script: |
+            docker login --username=${{ secrets.ACR_USERNAME }} --password=${{ secrets.ACR_PASSWORD }} ${{ secrets.ACR_SERVER }}
+            cd ~/lego-backend
+            docker-compose -f docker-compose-online.yml down
+            docker-compose -f docker-compose-online.yml up -d
+            rm -rf .env
+            docker logout ${{ secrets.ACR_SERVER }}
+```
+回滚版本：找到对应的github actions，点击右上角Re-run all jobs回滚版本
+![回滚版本](/github_rollback.png)
+
+### Github Actions使用release-it精简流程
+
+现在虽然可以自动化发布项目，但是需要手动打tag，以及package.json中的版本号更新，这就需要人工操作，这时候可以使用release-it来简化流程。
+
+```js
+npm i --save-dev release-it
+```
+```js
+// package.json
+scripts: {
+    "release": "release-it" //弹出用户输入模式
+    "release": "release-it --ci" //ci模式
+}
+```
+release有两种模式，一种是弹出用户输入模式，一种是ci模式，ci模式是自动化脚本,release流程：
+1. Prerequisite checks，检查是否满足发布条件
+2. other plugins or user commands/hooks update file，其他插件或用户命令/hooks更新文件
+3. git add . --update
+4. git commit -m "[git.commitMessage]"
+5. git tag --annotate --message="[git.tagAnnotation]" [git.tagName]
+6. git push [git.pushArgs] [git.pushRepo]
+```js
+npm run release //使用弹出用户输入模式
+```
+ ![release-it](/github_release.png)
 
 ## Git错误解决记录
+
 ### 没有权限或者仓库不存在
 ::: danger 错误
 Please make sure you have the correct access rights and the repository exists
@@ -109,6 +495,49 @@ git remote -v //查看远程仓库地址
 
 git remote set-url origin git@github.com:qiuyicc/lego.git // [!code ++]
 //修改远程仓库地址
+```
+
+### yml错误
+:::danger
+The workflow is not valid. .github/workflows/push-image.yml (Line: 4, Col: 3): The identifier 'build and push' is invalid. IDs may only contain alphanumeric characters, '_', and '-'. IDs must start with a letter or '_' and and must be less than 100 characters.
+:::
+原因：yml文件格式错误，不能使用空格分割字符
+```yml
+build and push:
+```
+解决：
+```yml
+build-and-push:
+```
+
+### step错误1
+
+:::danger
+a step cannot have both the `uses` and `run` keys
+:::
+原因：step中不能同时使用`uses`和`run`
+
+### step错误2
+:::danger
+every step must define a `uses` or `run` key
+:::
+原因：step中必须定义`uses`或`run`
+
+### relase-it错误1
+:::danger
+ERROR Working dir must be clean
+:::
+原因：release首先要commit提交代码,但是commit之后仍然报错，使用git status查看文件状态，发现有未提交的没有忽略的无用文件混入了,删除无用文件即可。[release-it Docs](https://github.com/release-it/release-it/blob/main/docs/git.md)
+```js
+git add .
+git commit -m "test tag"
+```
+```js
+//.gitignore添加
+/docker-volumes/
+```
+```js
+git rm -r --cached docker-volumes/ //移除 docker-volumes 下已有的文件的跟踪，重新add，commit即可。
 ```
 
 
@@ -251,7 +680,9 @@ docker run -d -p 81:80 nginx
 ```ts
 docker ps //查看所有容器
 docker stop container_ID //停止容器
+docker stop $(docker ps -q) //停止所有容器
 docker ps -a //查看所有容器，包括停止的
+docker ps -q //查看所有容器的ID
 docker rm container_ID //删除容器
 docker container start container_ID //启动容器
 ```
@@ -432,6 +863,253 @@ docker-compose logs //查看容器日志
 docker-compose up -d --build //重新构建镜像并启动容器
 ```
 
+### Docker 初始化项目Mongo
+
+mongodb可以使用一个mongo-entrypoint文件来初始化mongodb，在docker-compose.yml文件中添加如下配置：
+```js
+version: '3'
+services:
+  lego-mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    container_name: lego-mongo
+    volumes:
+      - './docker-volumes/mongo/data:/data/db'
+      - './mongo-entrypoint/:/docker-entrypoint-initdb.d/' //挂载mongo-entrypoint文件，注意mongo-entrypoint文件必须是在第一次初始化数据时起作用，如果需要再次初始化需要删除docker-volumes文件
+    env_file: //挂载.env文件
+      - .env
+  lego-backend:
+    depends_on:
+      - lego-mongo
+    ports:
+      - 7001:7001
+    container_name: lego-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: //注入用户密码
+      - .env
+```
+```js
+//.env
+mongdb里面内置了初始化用户和密码，当挂载mongo-entrypoint文件后，会自动执行初始化脚本，创建用户和密码
+MONGO_INSERT_ROOT_USERNAME=xxx
+MONGO_INSERT_ROOT_PASSWORD=xxx
+MONGO_DB_USERNAME=xxx
+MONGO_DB_PASSWORD=xxx
+```
+```js
+//mongo-entrypoint/setup.sh
+//编写一个初始shell脚本
+#!/bin/bash
+#shell 脚本中发生错误，则停止执行并退出
+set -e
+
+mongosh <<EOF //EOF表示在某个命令后执行的子命令
+use admin
+//进行mongdb的auth认证，可以直接使用MONGO_INITDB_ROOT_PASSWORD、USERNAME等环境变量，因为在前面的yml文件中已经挂载了相应的mongo-entrypoint初始化文件并设置了相应的env环境变量注入
+db.auth('$MONGO_INSERT_ROOT_USERNAME', '$MONGO_INITDB_ROOT_PASSWORD')
+use lego
+db.createUser({user: '$MONGO_DB_USERNAME', pwd: '$MONGO_DB_PASSWORD', roles: [{role: 'readWrite', db: 'lego'}]})
+db.createCollection('works')
+db.works.insertMany([
+  {
+    id: 19,
+    title: '1024 程序员日',
+    desc: '1024 程序员日',
+    author: '185****2625',
+    coverImg: 'http://static-dev.imooc-lego.com/imooc-test/sZHlgv.png',
+    copiedCount: 737,
+    isHot: true,
+    isTemplate: true,
+    isPublic: true,
+    createdAt: '2020-11-26T09:27:19.000Z',
+  }
+])
+EOF
+```
+```js
+//更改config.prod.js文件，为mongdb配置添加用户名和密码
+  config.mongoose = {
+    url: 'mongodb://lego-mongo:27017/lego',
+    options: {
+      user:process.env.MONGO_DB_USERNAME,
+      pass:process.env.MONGO_DB_PASSWORD,
+    },
+  };
+```
+```js
+//重新build
+docker-compose up -d --build
+```
+![成功运行](/mongdb_init2.png)
+![成功运行](/mongdb_init.png)
+
+### Docker 启用Redis
+```js
+docker pull redis:6 //拉取redis镜像
+```
+```js
+//docker-compose.yml
+version: '3'
+services:
+  lego-mongo:
+    image: mongo
+    ports:
+      - 27017:27017
+    container_name: lego-mongo
+    volumes:
+      - './docker-volumes/mongo/data:/data/db'
+      - './mongo-entrypoint/:/docker-entrypoint-initdb.d/'
+    env_file:
+      - .env
+  lego-redis: //增加redis容器
+    image: redis:6
+    ports:
+      - 6379:6379
+    command: > //使用自定义requirepass密码
+      --requirepass ${REDIS_PASSWORD}
+    container_name: lego-redis
+    env_file:
+      - .env
+  lego-backend:
+    depends_on:
+      - lego-mongo
+      - lego-redis
+    ports:
+      - 7001:7001
+    container_name: lego-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+```
+```js
+//env文件增加redis密码
+REDIS_PASSWORD=xxx
+```
+```js
+//config.prod.js文件配置redis
+config.redis = {
+  client: {
+    port: 6379,
+    host: 'lego-redis',
+    password: process.env.REDIS_PASSWORD,
+    db: 0,
+  },
+};
+```
+```js
+//重新build
+docker-compose up -d --build
+```
+
+### Docker alpine优化镜像大小
+Alpine:
+  small:默认软件包，alpine选择busybox，C运行库，一般使用glibc，alpine选择musl
+  Simple：很多内置插件去掉，去掉国际化
+  Secure安全
+
+```js
+docker pull node:20-alpine //拉取node:20-alpine镜像
+```
+```js
+//Dockerfile
+FROM node:20-alpine
+```
+
+### Docker 优化构建速度
+
+docker层的cache机制，docker build命令会把每一层的镜像缓存下来，下次构建时，会优先使用缓存的层，加快构建速度。而如果上一层的的缓存失效，会导致下一层的缓存失效。对项目来说，如果package.json文件没有变化，则可以直接使用缓存的层，加快构建速度。
+
+```js
+FROM node:20-alpine
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+COPY package*.json package-lock.json /usr/src/app/ ///先进行复制package.json和package-lock.json文件
+RUN npm install //先进行安装依赖
+COPY . /usr/src/app/ //复制项目文件，如果package.json文件没有变化，则可以直接使用缓存的层，直接复制项目文件，加快构建速度
+RUN npm run tsc 
+EXPOSE 7001
+CMD npx egg-scripts start  --title=egg-server-example
+```
+
+### Docker 服务器运行项目
+
+1. 服务器安装docker、docker安装相应的images镜像
+2. 服务器上拉取项目代码，进入项目根目录，执行docker-compose up -d --build 启动项目
+3. 服务器上开放相应的端口，对于端口已经占用的，可以停止占用端口的进程，或者修改映射端口号
+4. 使用IP访问项目，查看是否成功
+![服务器运行项目](/server_docker.png)
+![服务器运行项目](/server_docker2.png)
+
+### 阿里云容器镜像服务ACR
+目前线上更新的流程：
+1. 每次代码更新以后，登录到ssh服务器
+2. 关闭服务，docker-compose down
+3. 更新代码 git pull
+4. 重新设置.env文件
+5. 重新build镜像，docker-compose build  xxx
+6. 重启服务，docker-compose up -d
+
+每次都要手动部署和设置，非常繁琐，最理想的是自动一次性部署到服务器，并且自动更新代码。我们在docker-compose.yml文件生成的应用镜像是在本地的，如果我们把镜像上传到阿里云的容器镜像服务，就可以实现自动部署和更新，不需要build，而是直接使用服务器中的的镜像.[阿里云镜像服务](https://cr.console.aliyun.com/cn-chengdu/instances)
+1. 登录阿里云容器镜像服务，创建个人版本实例，设置密码
+2. 创建命令空间
+3. 创建镜像仓库，代码源为本地仓库
+4. 点击仓库，查看仓库基本信息和操作
+5. 将生成的镜像推送到创建好的阿里云镜像仓库
+```js
+docker login --username=xxxxx crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com //登录阿里云镜像仓库
+```
+```js
+//构建镜像方式一，直接build的时候打tag
+docker build --tag "crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/仓库名:镜像版本号" . 
+//构建镜像方式二，build之后再push到仓库
+docker-compose build xxx //构建镜像
+docker tag [ImageId] crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/xxxx/lego:[镜像版本号]
+```
+```js
+docker push crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/xxxx/lego:[镜像版本号] //推送镜像到阿里云镜像仓库
+```
+```yml
+# 增加一个新的docker-compose-online.yml文件，将镜像源改为阿里云镜像仓库
+version: '3'
+services:
+  lego-mongo:
+    image: mongo
+    ports:
+      - 27018:27017
+    container_name: lego-mongo
+    volumes:
+      - './docker-volumes/mongo/data:/data/db'
+      - './mongo-entrypoint/:/docker-entrypoint-initdb.d/'
+    env_file:
+      - .env
+  lego-redis:
+    image: redis:6
+    ports:
+      - 6378:6379
+    command: > 
+      --requirepass ${REDIS_PASSWORD}
+    container_name: lego-redis
+    env_file:
+      - .env
+  lego-backend:
+    # 使用阿里云镜像仓库的镜像
+    image: crpi-xxxxx.cn-chengdu.personal.cr.aliyuncs.com/xxxx/lego:1.0.0
+    # 使用7002端口映射，避免与本地端口冲突
+    ports:
+      - 7002:7001
+    container_name: lego-backend
+    env_file:
+      - .env
+```
+```js
+docker-compose -f docker-compose-online.yml up -d //使用docker-compose-online.yml文件启动项目
+```
+这样即使本地没有项目的镜像，也会从阿里云镜像仓库拉取镜像。
 
 
 

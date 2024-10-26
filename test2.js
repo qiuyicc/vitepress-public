@@ -1210,27 +1210,81 @@ function shallowCopy(obj) {
 // }
 // console.log(findMaxProfit([1,3,2,8,4,9],2)) // 8
 
-function maxSildingWindow(arr,k){
-  let res = []
-  let deque = []
-  function removeOUtdated(index){
-    while(deque.length && deque[0] <= index - k){
-      deque.shift()
+// function maxSildingWindow(arr,k){
+//   let res = []
+//   let deque = []
+//   function removeOUtdated(index){
+//     while(deque.length && deque[0] <= index - k){
+//       deque.shift()
+//     }
+//   }
+//   function maintainDeque(index){
+//     while(deque.length && arr[index] > arr[deque[deque.length - 1]]){
+//       deque.pop()
+//     }
+//   }
+//   for(let i=0;i<arr.length;i++){
+//     removeOUtdated(i)
+//     maintainDeque(i)
+//     deque.push(i)
+//     if(i >= k-1){
+//       res.push(arr[deque[0]])
+//     }
+//   }
+//   return res
+// }
+// console.log(maxSildingWindow([1,3,-1,-3,5,3,6,7],3))
+
+
+// function longestIncreasingSubsequence(nums) {
+//   if(nums.length === 0) return []
+//   let lengths = new Array(nums.length).fill(1) // 记录每个位置的最长递增子序列长度
+//   let prevs = new Array(nums.length).fill(-1) // 记录每个位置的前一个位置
+//   let maxLength = 1 // 记录最长递增子序列的长度
+//   let endIndex = 0 // 记录最长递增子序列的结束位置
+//   for(let i=1;i<nums.length;i++){
+//     for(let j=0;j<i;j++){
+//       // 如果当前位置的值大于等于前一个位置的值，并且当前位置的最长递增子序列长度+1大于等于前一个位置的最长递增子序列长度
+//       if(nums[i] > nums[j] && lengths[j] + 1 > lengths[i]){
+//         lengths[i] = lengths[j] + 1
+//         prevs[i] = j
+//       }
+//     }
+//     if(lengths[i] > maxLength){
+//       maxLength = lengths[i]
+//       endIndex = i
+//     }
+//   }
+//   let res = []
+//   while(endIndex !== -1){
+//     res.unshift(nums[endIndex])
+//     endIndex = prevs[endIndex]
+//   }
+//   return res
+// }
+// console.log(longestIncreasingSubsequence([10,9,2,5,3,7,101,18]));
+
+let watch = (obj,setBind,getBind) =>{
+  let handler = {
+    get(target,key,receiver){
+      getBind(target,key)
+      return Reflect.get(target,key,receiver)
+    },
+    set(target,key,value,receiver){
+      setBind(target,key,value)
+      return Reflect.set(target,key,value,receiver)
     }
   }
-  function maintainDeque(index){
-    while(deque.length && arr[index] > arr[deque[deque.length - 1]]){
-      deque.pop()
-    }
-  }
-  for(let i=0;i<arr.length;i++){
-    removeOUtdated(i)
-    maintainDeque(i)
-    deque.push(i)
-    if(i >= k-1){
-      res.push(arr[deque[0]])
-    }
-  }
-  return res
+  return new Proxy(obj,handler)
 }
-console.log(maxSildingWindow([1,3,-1,-3,5,3,6,7],3))
+
+let obj = {
+  name: 'zhangsan',
+}
+let p = watch(obj,(v,key)=>{
+  console.log(`set ${key} ${JSON.stringify(v)}`);
+},(target,key)=>{
+  console.log(`get ${target}--${key}`);
+})
+p.name = 'lisi'
+p.name

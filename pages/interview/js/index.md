@@ -9,6 +9,34 @@
 5. 栈区：内存由编译器自动分配释放，粗放函数的值、参数值等；
 6. 堆区：内存由开发者分配释放，若开发者不释放，程序结束时可能由操作系统回收；
 
+## null和undefined的区别
+undefined代表未定义，一般变量声明了但是没有定义的时候会返回undefined，null代表空值，一般表示一个空对象。undefined不是JS的关键字
+
+## ==和===的区别
+
+1. ==：比较两个值是否相等，会自动转换数据类型再比较;
+2. ===,如果两边类型不一致，不会做强制类型转换，直接返回false
+3. 使用Object.is()方法进行相等判断，一般情况下和===效果相同，处理了一些特殊情况，-0和+0不相等，NaN和NaN相等
+
+## JS包装类型
+
+在JS中，基本类型没有没有属性和方法，为了便于操作基本类型的值，在调用基本类型的属性和方法时，JS会在后台隐式地将基本类型转换为对象
+```js
+const a  = "abc"
+a.length // 3 => 隐式转换为String对象调用length属性
+const b = Object(a)
+b.length // 3 => 显式转换为String对象调用length属性
+const c = b.valueOf() //使用valueOf()方法可以获取基本类型的值
+```
+
+## 判断一个对象为空对象
+
+```js
+JSON.stringify({}) === '{}' // true
+Object.keys({}).length === 0 // true
+```
+
+
 ## 数据的检测方式
 
 1. typeof：检测基本数据类型，数组、对象、null都会被判断为object；
@@ -91,6 +119,56 @@ AMD(Asynchronous Module Definition)异步模块定义，CommonJS(CommonJS Module
 4. 暂时性死区，在使用let、const声明变量之前，不能使用该变量，否则会报错
 5. 初始值设置，var、let可以不用设置初始值，而const声明的变量必须设置初始值
 6. 指针指向，let、var可以改变指针指向，const不行
+
+## Proxy
+
+Proxy是ES6中新增的功能，用来自定义对象中的操作
+```js
+let watch = (obj,setBind,getBind) =>{
+  let handler = {
+    get(target,key,receiver){
+      getBind(target,key)
+      return Reflect.get(target,key,receiver)
+    },
+    set(target,key,value,receiver){
+      setBind(target,key,value)
+      return Reflect.set(target,key,value,receiver)
+    }
+  }
+  return new Proxy(obj,handler)
+}
+
+let obj = {
+  name: 'zhangsan',
+}
+let p = watch(obj,(v,key)=>{
+  console.log(`set ${key} ${JSON.stringify(v)}`);
+},(target,key)=>{
+  console.log(`get ${target}--${key}`);
+})
+p.name = 'lisi'
+p.name
+```
+
+## JSON
+
+JSON(JavaScript Object Notation)是一种轻量级的数据交换格式，易于人阅读和编写，同时也易于机器解析和生成,通常作为前后端数据交换的方式，它基于ECMAScript的一个子集，JSON与JavaScript的交互基于两种主要的操作：
+1. 序列化：将JavaScript对象转换为JSON字符串，JSON.stringify()
+2. 反序列化：将JSON字符串转换为JavaScript对象，JSON.parse()
+
+## DOM和BOM
+
+1. DOM指的是文档对象模型，把文档当作一个对象，定义了处理网页内容的方法和接口
+2. BOM(Browser Object Model)指的是浏览器对象模型，提供了与浏览器进行交互的方法和接口，核心是Window对象，它代表了浏览器窗口，其他BOM对象都是基于Window对象衍生出来的，比如navigator、screen、location、history、document(DOM文档对象)等。
+
+## escape和encodeURI、encodeURIComponent的区别
+1. escape()方法对整个URI进行转义，将URI中的非法字符转换为合法字符，对于一些在URI中有特殊含义的字符不会进行转义，直接在字符的unicode前面加上%
+2. encodeURI()方法和escape方法类似，不过escape首先将字符转换为UTF-8的格式，再在每个字节上加上%
+3. encodeURIComponent()方法会对其中的特殊字符也会转义
+
+## 尾调用
+
+指函数的最后一步调用另一个函数，代码执行是基于执行栈的，当在一个函数里调用另一个函数，会保留当前的执行上下文，然后再新建另一个执行上下文加入栈中，当使用尾调用时，已经是函数最后一步，所以这时不必保留当前的执行上下文，从而节省了内存，只在严格模式下开启
 
 ## 数组原生方法
 

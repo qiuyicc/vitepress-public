@@ -330,6 +330,43 @@ console.log(threeSum([-1,0,1,2,-1,-4], 0)); /// [[-1, -1, 2], [-1, 0, 1]]
 console.log(threeSum([-2,0,0,2,2], 0));// [[-2, 0, 2]]
 ```
 
+### 最长数组递增子序列
+1. 维护两个数组,一个记录每个位置的最长递增子序列长度，另一个记录每个位置的前一个位置
+2. 通过两次遍历来构建这两个数组，并更新最长递增子序列的长度和结束位置
+3. 回溯最长递增子序列
+```js
+function longestIncreasingSubsequence(nums) {
+  if(nums.length === 0) return []
+  let lengths = new Array(nums.length).fill(1) // 记录每个位置的最长递增子序列长度
+  let prevs = new Array(nums.length).fill(-1) // 记录每个位置的前一个位置
+  let maxLength = 1 // 记录最长递增子序列的长度
+  let endIndex = 0 // 记录最长递增子序列的结束位置
+  for(let i=1;i<nums.length;i++){
+    for(let j=0;j<i;j++){
+      // 如果当前位置的值大于等于前一个位置的值，并且当前位置的最长递增子序列长度+1大于等于前一个位置的最长递增子序列长度
+      if(nums[i] > nums[j] && lengths[j] + 1 > lengths[i]){
+        // 更新当前位置的最长递增子序列长度
+        lengths[i] = lengths[j] + 1
+        prevs[i] = j
+      }
+    }
+    // 更新最长递增子序列的长度和结束位置
+    if(lengths[i] > maxLength){
+      maxLength = lengths[i]
+      endIndex = i
+    }
+  }
+  // 回溯最长递增子序列
+  let res = []
+  while(endIndex !== -1){
+    res.unshift(nums[endIndex])
+    endIndex = prevs[endIndex]
+  }
+  return res
+}
+console.log(longestIncreasingSubsequence([10,9,2,5,3,7,101,18]));
+```
+
 ## 树
 
 ### 判断某数组是否是二叉查找树前序遍历结果
@@ -439,6 +476,78 @@ function maxSildingWindow(arr,k){
 }
 console.log(maxSildingWindow([1,3,-1,-3,5,3,6,7],3))// [3,3,5,5,6,7]
 ```
+
+## 链表
+
+### 合并两个有序链表
+
+```js
+使用递归，复杂度O(M+N) // [!code ++]
+const mergerTwoLists = (l1, l2) => {
+  if (!l1) {
+    return l2;
+  }
+  if (!l2) {
+    return l1;
+  }
+  if(l1.val < l2.val){
+    l1.next = mergerTwoLists(l1.next, l2)
+    return l1
+  }else {
+    l2.next = mergerTwoLists(l1, l2.next)
+    return l2
+  }
+}
+```
+```js
+// 迭代 // [!code ++]
+const mergerTwoLists = (l1, l2) => {
+  const prehead = new ListNode(-1);
+  let prev = prehead;
+  while (l1 && l2) {
+    if (l1.val < l2.val) {
+      prev.next = l1;
+      l1 = l1.next;
+    }else {
+      prev.next = l2;
+      l2 = l2.next;
+    }
+    prev = prev.next;
+  }
+  return prehead.next;
+}
+```
+
+## 回溯
+
+### 全排列
+```js
+function permute(nums) {
+  const result = [];
+
+  const backtrack = (current, remaining) => {
+    // 如果没有剩余元素，说明当前排列已完成
+    if (remaining.length === 0) {
+      result.push(current);
+      return;
+    }
+    for (let i = 0; i < remaining.length; i++) {
+      // 选择第 i 个元素
+      const nextCurrent = [...current, remaining[i]];
+      // 递归选择剩余元素
+      const nextRemaining = remaining.filter((_, index) => index !== i);
+      backtrack(nextCurrent, nextRemaining);
+    }
+  };
+
+  backtrack([], nums);
+  return result;
+}
+const array = [1, 2, 3, 4];
+const permutations = permute(array);
+console.log(permutations);
+```
+
 
 ## DP
 

@@ -1,7 +1,23 @@
 import { defineConfig } from 'vitepress';
 import { set_sidebar } from '../utils/auto_generate_sidbar.mjs';
+import viteImagemin from '@vheemstra/vite-plugin-imagemin'
+import imageminPngquant from 'imagemin-pngquant';
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  vite:{
+    build:{
+      chunkSizeWarningLimit:600,
+    },
+    plugins:[
+      viteImagemin({
+        plugins:{
+          png: imageminPngquant({
+            quality: [0.6, 0.8]
+          })
+        }
+      })
+    ]
+  },
   head: [
     ['link', { rel: 'icon', href: '/favicon.png' }],
     ['script', { src: '/test.js' }],

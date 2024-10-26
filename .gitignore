@@ -1,7 +1,7 @@
 # Build and Release Folders
 bin-debug/
 bin-release/
-/node_modules
+node_modules/
 [Oo]bj/
 [Bb]in/
 
@@ -14,9 +14,10 @@ bin-release/
 *.ipa
 *.apk
 
-/test2.js
-/test1.html
-/test2.html
+test2.js
+test1.html
+test2.html
+a.html
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important

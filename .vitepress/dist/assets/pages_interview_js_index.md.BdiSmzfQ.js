@@ -115,8 +115,8 @@ import{_ as s,c as i,o as a,a5 as n}from"./chunks/framework.BLFC1wTn.js";const F
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// time start</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// promise start</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// promise end</span></span>
-<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// promise then start</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// time end</span></span>
+<span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">// promise then start</span></span>
 <span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D;">//setTimeout start</span></span></code></pre></div><ol start="3"><li>async返回一个Promise对象，当函数执行的时候，遇到await就会先返回，等到异步操作完成后，才会继续执行。await后面可以跟一个Promise对象，等待Promise的返回结果</li></ol><div class="language-js vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">js</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0"><code><span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">async</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;"> function</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0;"> f1</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">(){</span></span>
 <span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583;">return</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF;"> 1</span></span>
 <span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8;">}</span></span>

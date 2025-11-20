@@ -22,7 +22,7 @@ hero:
 
 features:
   - title: 前端
-    details: 2024年前端冲冲冲
+    details: 2025年前端冲冲冲
   - title: 后端 
     details: Node算不算是后端
   - title: 爱好 

@@ -159,6 +159,102 @@ K：keywords
 CSR 应用：ToB 后台管理系统，大屏可视化，不需要很高的 SEO 支持；
 SSR 应用：ToC 密集型应用，新闻网站，博客网站，电子商务等，需要更高的 SEO
 
+### npm和pnpm和yarn
+
+| 特性 | npm | yarn | pnpm |
+| --- | --- | --- | --- |
+| 安装速度 | 较慢 | 较快 | 最快 |
+| 磁盘占用 | 较大 | 较大 | 最小 |
+| 依赖管理 | 扁平化（npm 3+） | 扁平化 | 符号链接 + 硬链接 |
+| 锁定文件 | package-lock.json | yarn.lock | pnpm-lock.yaml |
+| 工作区支持 | 支持 | 支持 | 原生支持 |
+| 严格依赖 | 否（幽灵依赖） | 否（幽灵依赖） | 是 |
+| 安装方式 | 全局安装 | 全局安装 | 全局安装 |
+
+npm：串行安装，较慢  
+yarn：并行安装，较快  
+pnpm：最快（硬链接复用 + 并行）  
+npm/yarn：每个项目独立安装，占用大  
+pnpm：全局存储 + 硬链接，占用最小  
+
+```md
+<!-- npm 2.x -->
+<!-- 依赖嵌套深、路径长、重复安装 -->
+node_modules/
+  ├── package-a/
+  │   └── node_modules/
+  │       └── package-b/
+  └── package-c/
+      └── node_modules/
+          └── package-b/
+```
+```md
+<!-- npm 3+（扁平化） -->
+<!-- 依赖提升到 node_modules 根目录 版本冲突时仍会嵌套 可能出现幽灵依赖（未声明但可访问） -->
+node_modules/
+  ├── package-a/
+  ├── package-b/        # 提升到顶层
+  └── package-c/
+      └── node_modules/
+          └── package-b/ # 如果版本冲突，仍会嵌套
+
+{
+  "dependencies": {
+    "package-a": "^1.0.0"
+  }
+}
+
+// package-a 依赖 package-b
+// 但在你的代码中可以直接使用：
+import { something } from 'package-b' // ✅ 可以访问，但未声明
+```
+```md
+<!-- 1. 内容可寻址存储（Content-Addressable Storage） 使用硬链接指向全局存储 全局存储，所有项目共享 -->
+~/.pnpm-store/
+  ├── package-a@1.0.0/
+  ├── package-b@2.0.0/
+  └── package-c@3.0.0/
+<!-- 符号链接结构 -->
+项目目录/
+  └── node_modules/
+      ├── .pnpm/                    # 真实依赖存储
+      │   ├── package-a@1.0.0/
+      │   │   └── node_modules/
+      │   │       ├── package-a/    # 真实文件（硬链接）
+      │   │       └── package-b/    # 依赖（符号链接）
+      │   └── package-b@2.0.0/
+      │       └── node_modules/
+      │           └── package-b/    # 真实文件
+      ├── package-a -> .pnpm/package-a@1.0.0/node_modules/package-a
+      └── package-b -> .pnpm/package-b@2.0.0/node_modules/package-b
+
+<!-- 例如 -->
+{
+  "dependencies": {
+    "package-a": "^1.0.0"
+  }
+}
+只有 package-a 被提升到 node_modules 根目录
+package-b（package-a 的依赖）只在 .pnpm/package-a@1.0.0/node_modules/ 中
+
+// ❌ 错误：无法找到 package-b
+import { something } from 'package-b' 
+
+// ✅ 正确：只能使用声明的依赖
+import { something } from 'package-a'
+
+每个包只能访问其 package.json 中声明的依赖
+依赖被隔离在各自的 .pnpm 目录中
+通过符号链接建立依赖关系
+```
+
+
+
+
+
+
+
+
 ## Node.js 模块系统
 
 ### Cluster模块

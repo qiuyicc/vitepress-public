@@ -13,7 +13,16 @@ node_modules/
 *.air
 *.ipa
 *.apk
-
+/.vitepress/cache
+/.vitepress/theme
+/.vitepress/config.mts
+utils/
+public/
+pages/
+index.md
+LICENSE
+package-lock.json
+package.json
 test2.js
 test1.js
 test1.html

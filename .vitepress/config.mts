@@ -116,6 +116,7 @@ export default defineConfig({
           { text: "小程序", link: "/pages/interview/weichat" },
           { text: "Git", link: "/pages/interview/git" },
           { text: "Net", link: "/pages/interview/server" },
+          { text: "Other", link: "/pages/interview/other" },
         ],
       },
       {

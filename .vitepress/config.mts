@@ -25,6 +25,8 @@ export default defineConfig({
   title: "秋忆CC个人博客",
   description: "部署网站",
   metaChunk: true,
+  // `_*.md` 只给 <!--@include--> 用，不要单独成页、也不进搜索
+  srcExclude: ["**/_*.md"],
   markdown: {},
   themeConfig: {
     logo: "/logo.png",
@@ -72,6 +74,10 @@ export default defineConfig({
       {
         text: "项目记录",
         link: "/pages/project/vueProject",
+      },
+      {
+        text: "学习Agent",
+        link: "/pages/agent/index",
       },
       {
         text: "一起学",
@@ -127,6 +133,7 @@ export default defineConfig({
           { text: "Git", link: "/pages/front_end/git" },
           { text: "Jest", link: "/pages/front_end/jest" },
           { text: "Build Tools", link: "/pages/front_end/webpack" },
+          { text: "Nuxt", link: "/pages/front_end/nuxt" },
         ],
       },
       {

@@ -18,8 +18,12 @@ node_modules/
 /.vitepress/config.mts
 utils/
 public/
-pages/
-index.md
+# 忽略 pages 下内容，但允许提交 VPN 实践笔记
+pages/*
+!pages/vpn/
+!pages/vpn/**
+# 仅忽略仓库根目录 index.md，不影响 pages/**/index.md
+/index.md
 LICENSE
 package-lock.json
 package.json

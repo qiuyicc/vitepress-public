@@ -80,6 +80,10 @@ export default defineConfig({
         link: "/pages/agent/index",
       },
       {
+        text: "VPN实践",
+        link: "/pages/vpn/",
+      },
+      {
         text: "一起学",
         items: [
           // {

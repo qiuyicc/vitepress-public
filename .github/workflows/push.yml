@@ -1,16 +1,55 @@
-name: Push VitePress
-on: [push]
+# Push 后构建 VitePress，并把静态产物同步到 VPS
+# 需在 GitHub → Settings → Secrets 配置：
+#   SSH_HOST       服务器 IP 或域名
+#   SSH_USERNAME   SSH 用户名
+#   SSH_PASSWORD   SSH 密码（更推荐改用 SSH_KEY）
+#   SSH_PORT       可选，默认 22
+# 服务器上 Nginx/静态服务应指向下方 remote_path（只服务构建结果）
+
+name: Deploy VitePress
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-vitepress
+  cancel-in-progress: true
+
 jobs:
-  publish-vitepress:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Copy VitePress files
-        uses: appleboy/scp-action@master
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install and build
+        run: |
+          pnpm install --frozen-lockfile || pnpm install
+          pnpm docs:build
+
+      # VitePress 默认产物目录：.vitepress/dist
+      - name: Upload dist to server
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
-          source: '.vitepress'
-          target: '/home/vitepress/vite-press'
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: ".vitepress/dist/*"
+          target: "/var/www/vitepress"
+          strip_components: 2
+          overwrite: true
+          rm: false

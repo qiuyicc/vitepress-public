@@ -1,38 +1,32 @@
-# Build and Release Folders
+# Dependencies
+node_modules/
+
+# VitePress / Vite
+.vitepress/cache/
+.vitepress/dist/
+.vitepress/.temp/
+.vitepress/*.timestamp-*.mjs
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.*
+
+# Legacy junk (not part of the site)
 bin-debug/
 bin-release/
-node_modules/
 [Oo]bj/
-[Bb]in/
-
-# Other files and folders
 .settings/
-
-# Executables
 *.swf
 *.air
 *.ipa
 *.apk
-/.vitepress/cache
-/.vitepress/theme
-/.vitepress/config.mts
-utils/
-public/
-# 忽略 pages 下内容，但允许提交 VPN 实践笔记
-pages/*
-!pages/vpn/
-!pages/vpn/**
-# 仅忽略仓库根目录 index.md，不影响 pages/**/index.md
-/index.md
-LICENSE
-package-lock.json
-package.json
-test2.js
 test1.js
+test2.js
 test1.html
 test2.html
 a.html
-
-# Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
-# should NOT be excluded as they contain compiler settings and other important
-# information for Eclipse / Flash Builder.

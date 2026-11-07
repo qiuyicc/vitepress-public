@@ -1,10 +1,5 @@
 # Push 后构建 VitePress，并把静态产物同步到 VPS
-# 需在 GitHub → Settings → Secrets 配置：
-#   SSH_HOST       服务器 IP 或域名
-#   SSH_USERNAME   SSH 用户名
-#   SSH_PASSWORD   SSH 密码（更推荐改用 SSH_KEY）
-#   SSH_PORT       可选，默认 22
-# 服务器上 Nginx/静态服务应指向下方 remote_path（只服务构建结果）
+# Secrets: SSH_HOST / SSH_USERNAME / SSH_PASSWORD，可选 SSH_PORT
 
 name: Deploy VitePress
 
@@ -24,22 +19,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 版本以 package.json 的 packageManager 为准，勿再写 version，否则会冲突
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+          cache: npm
 
+      # imagemin/pngquant 原生依赖在 CI 上常失败，构建站点不强制需要其 postinstall
       - name: Install and build
         run: |
-          pnpm install
-          pnpm docs:build
+          npm ci --ignore-scripts
+          npm run docs:build
 
-      # VitePress 默认产物目录：.vitepress/dist
       - name: Upload dist to server
         uses: appleboy/scp-action@v0.1.7
         with:
